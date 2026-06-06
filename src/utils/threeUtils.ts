@@ -24,28 +24,28 @@ interface ConstellationDef {
 const CONSTELLATION_DEFS: ConstellationDef[] = [
   {
     // Top-right: triangle with a tail — like a kite
-    center: [22, 18],
+    center: [36, 28],
     color: GOLD,
     nodes: [[0, 0], [3, 5], [7, 1], [5, -4], [2, -8], [9, -3]],
     edges: [[0,1],[1,2],[2,3],[3,0],[3,4],[4,5],[2,5]],
   },
   {
     // Bottom-left: zigzag chain — like a serpent
-    center: [-26, -20],
+    center: [-38, -32],
     color: CYAN,
     nodes: [[0, 0], [4, 3], [8, -1], [6, -6], [10, -8], [3, -5], [-1, -7]],
     edges: [[0,1],[1,2],[2,3],[3,4],[1,5],[5,6],[6,0]],
   },
   {
     // Top-left: diamond with cross
-    center: [-18, 22],
+    center: [-32, 34],
     color: GREEN,
     nodes: [[0, 0], [4, 4], [8, 0], [4, -4], [-4, 0]],
     edges: [[0,1],[1,2],[2,3],[3,0],[0,2],[1,3],[0,4]],
   },
   {
     // Bottom-right: small hexagon cluster
-    center: [28, -16],
+    center: [40, -30],
     color: GOLD,
     nodes: [[0, 0], [3, 5], [6, 3], [6, -2], [3, -5], [-1, -3]],
     edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,0],[0,3]],
@@ -407,7 +407,7 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     // Update constellation lines: sequential draw — one edge fades in at a time
     // All constellations draw simultaneously, edge by edge
     const maxEdges = Math.max(...CONSTELLATION_DEFS.map(d => d.edges.length));
-    const cycleTime = 4.0; // full cycle in seconds
+    const cycleTime = 10.0; // full cycle in seconds
     const rawSweep = (t % cycleTime) / cycleTime * maxEdges;
     const globalEdge = Math.floor(rawSweep);
     const edgeFrac = rawSweep - globalEdge; // 0→1 for current edge
