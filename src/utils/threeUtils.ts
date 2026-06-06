@@ -41,11 +41,14 @@ function createRingNebula(): {
   const baseY = new Float32Array(PARTICLE_COUNT);
 
   const paletteColors = [
-    PALETTE.gold,
-    PALETTE.aeroCyan,
-    PALETTE.neonGreen,
-    PALETTE.gold.clone().multiplyScalar(0.5),
-    PALETTE.aeroCyan.clone().multiplyScalar(0.4),
+    new THREE.Color("#ffffff"),      // pure white chrome
+    new THREE.Color("#e8e8e8"),      // light chrome
+    new THREE.Color("#d0d0d0"),      // medium white
+    new THREE.Color("#b0b0b0"),      // silver
+    new THREE.Color("#888888"),      // mid gray
+    new THREE.Color("#f5f5f5"),      // near white
+    new THREE.Color("#c8c8c8"),      // soft silver
+    new THREE.Color("#a0a0a0"),      // darker silver
   ];
 
   for (let i = 0; i < PARTICLE_COUNT; i++) {
@@ -186,7 +189,7 @@ export function createBackgroundScene(container: HTMLElement): () => void {
         float ringGlow = exp(-ringDist * ringDist * 200.0) * 0.12;
         float centerGlow = exp(-d * 5.0) * 0.03;
         float glow = ringGlow + centerGlow;
-        vec3 color = mix(vec3(0.79, 0.66, 0.30), vec3(0.0, 0.83, 1.0), glow);
+        vec3 color = mix(vec3(0.9, 0.9, 0.95), vec3(1.0, 1.0, 1.0), glow);
         gl_FragColor = vec4(color, glow * 0.4);
       }
     `,
