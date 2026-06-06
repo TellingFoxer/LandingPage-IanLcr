@@ -1,0 +1,304 @@
+---
+// Certifications.astro
+// Infinite horizontal carousel with auto-play, arrows, and snap scroll.
+import { certifications } from "../data/certifications";
+---
+
+<section id="certifications" class="relative z-10 py-24 px-6 max-w-5xl mx-auto">
+  <h2
+    class="reveal font-serif text-4xl sm:text-5xl font-bold text-gold glow-text text-center mb-16"
+  >
+    Certificaciones
+  </h2>
+
+  <div class="carousel-container reveal relative select-none">
+    <!-- Prev arrow -->
+    <button
+      class="carousel-arrow carousel-prev absolute top-1/2 -left-3 sm:-left-5 -translate-y-1/2 z-20 w-10 h-10 rounded-full glass-strong flex items-center justify-center text-parchment/70 hover:text-gold transition-all duration-300 cursor-pointer hover:scale-110"
+      aria-label="Anterior"
+    >
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M11 14L6 9L11 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    <!-- Viewport -->
+    <div class="carousel-viewport overflow-hidden rounded-2xl">
+      <div class="carousel-track flex gap-4">
+        {certifications.map((cert) => (
+          <div
+            class="cert-card shrink-0 w-[280px] sm:w-[320px] glass rounded-2xl p-6 flex flex-col justify-between border border-parchment/5 hover:border-gold/20 transition-all duration-500"
+          >
+            <!-- Top: issuer logo + date -->
+            <div>
+              <div class="flex items-start justify-between mb-4">
+                <span
+                  class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold"
+                  style="background: rgba(201, 168, 76, 0.1); color: #C9A84C"
+                >
+                  {cert.logo}
+                </span>
+                <span class="text-[11px] text-gray-tech/60 font-mono tracking-wider">
+                  {cert.date}
+                </span>
+              </div>
+
+              <!-- Title -->
+              <h3
+                class="font-serif text-lg font-semibold text-parchment/90 leading-snug mb-1"
+              >
+                {cert.title}
+              </h3>
+
+              <!-- Issuer -->
+              <p class="text-xs text-gold/70 font-medium tracking-wide mb-3">
+                {cert.issuer}
+              </p>
+
+              <!-- Description -->
+              <p class="text-xs text-parchment/60 leading-relaxed">
+                {cert.description}
+              </p>
+            </div>
+
+            <!-- Bottom: verify link if present -->
+            {cert.link && (
+              <a
+                href={cert.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="mt-4 inline-flex items-center gap-1.5 text-[11px] text-gray-tech/50 hover:text-aero-cyan transition-colors duration-300 tracking-wide uppercase"
+              >
+                Verificar
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M1 11L11 1M11 1H3.5M11 1V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </a>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- Next arrow -->
+    <button
+      class="carousel-arrow carousel-next absolute top-1/2 -right-3 sm:-right-5 -translate-y-1/2 z-20 w-10 h-10 rounded-full glass-strong flex items-center justify-center text-parchment/70 hover:text-gold transition-all duration-300 cursor-pointer hover:scale-110"
+      aria-label="Siguiente"
+    >
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M7 14L12 9L7 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    <!-- Dots -->
+    <div class="carousel-dots flex justify-center gap-2 mt-6"></div>
+  </div>
+</section>
+
+<script>
+  const INTERVAL_MS = 4000;
+
+  const viewport = document.querySelector<HTMLElement>(".carousel-viewport");
+  const track = document.querySelector<HTMLElement>(".carousel-track");
+  const prevBtn = document.querySelector<HTMLElement>(".carousel-prev");
+  const nextBtn = document.querySelector<HTMLElement>(".carousel-next");
+  const dotsContainer = document.querySelector<HTMLElement>(".carousel-dots");
+
+  if (!viewport || !track || !prevBtn || !nextBtn || !dotsContainer) {
+    throw new Error("Carousel elements not found");
+  }
+
+  const cards = Array.from(track.children) as HTMLElement[];
+  const total = cards.length;
+  let index = 0;
+  let interval: ReturnType<typeof setInterval> | null = null;
+  let isTransitioning = false;
+
+  // Clone first and last for infinite illusion
+  // We'll clone first card at end, last card at beginning
+  const firstClone = cards[0].cloneNode(true) as HTMLElement;
+  const lastClone = cards[total - 1].cloneNode(true) as HTMLElement;
+  track.appendChild(firstClone);
+  track.insertBefore(lastClone, cards[0]);
+
+  const allSlides = Array.from(track.children) as HTMLElement[];
+  const totalSlides = allSlides.length;
+  // Start at the first real card (index 1, since index 0 is the clone of last)
+  let currentIndex = 1;
+  const gap = 16; // gap-4 = 1rem = 16px
+
+  function getCardWidth(): number {
+    return allSlides[0]?.offsetWidth ?? 320;
+  }
+
+  function getGapTotal(): number {
+    // gap is applied between cards, calculated from style or fixed
+    return gap;
+  }
+
+  function goTo(rawIndex: number, animate = true) {
+    if (isTransitioning && animate) return;
+    isTransitioning = animate;
+
+    currentIndex = rawIndex;
+    const cardWidth = getCardWidth();
+    const gapTotal = getGapTotal();
+    const offset = -(currentIndex * (cardWidth + gapTotal));
+
+    if (animate) {
+      track.style.transition = "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)";
+    } else {
+      track.style.transition = "none";
+    }
+
+    track.style.transform = `translateX(${offset}px)`;
+    updateDots();
+
+    if (animate) {
+      setTimeout(() => {
+        isTransitioning = false;
+        // Handle infinite wrap
+        if (currentIndex === totalSlides - 1) {
+          // At last clone (which is clone of first) — jump to real first
+          track.style.transition = "none";
+          currentIndex = 1;
+          const newOffset = -(currentIndex * (cardWidth + gapTotal));
+          track.style.transform = `translateX(${newOffset}px)`;
+        } else if (currentIndex === 0) {
+          // At first clone (which is clone of last) — jump to real last
+          track.style.transition = "none";
+          currentIndex = total - 1; // total (real) - 1, but in the cloned set that's totalSlides - 2
+          // Actually: real last card is at index total (since clone of first is at index 0)
+          // total real cards = total, indexed 1..total in the cloned set
+          // real last is at index total (since clone of first is at index 0)
+          // Wait, let me recalculate:
+          // total real cards = total
+          // allSlides has: [clone_of_last, real_1, real_2, ..., real_N, clone_of_first]
+          // totalSlides = total + 2
+          // real_1 is at index 1, real_last is at index total
+          const realLastIndex = total;
+          currentIndex = realLastIndex;
+          const newOffset = -(currentIndex * (cardWidth + gapTotal));
+          track.style.transform = `translateX(${newOffset}px)`;
+        }
+      }, 550);
+    } else {
+      isTransitioning = false;
+    }
+  }
+
+  function next() {
+    goTo(currentIndex + 1);
+  }
+
+  function prev() {
+    goTo(currentIndex - 1);
+  }
+
+  function updateDots() {
+    const dotIndex = ((currentIndex - 1) % total + total) % total;
+    dotsContainer.querySelectorAll<HTMLElement>(".carousel-dot").forEach((dot, i) => {
+      dot.classList.toggle("active", i === dotIndex);
+    });
+  }
+
+  function startAuto() {
+    stopAuto();
+    interval = setInterval(next, INTERVAL_MS);
+  }
+
+  function stopAuto() {
+    if (interval) {
+      clearInterval(interval);
+      interval = null;
+    }
+  }
+
+  // Build dots
+  for (let i = 0; i < total; i++) {
+    const dot = document.createElement("button");
+    dot.className =
+      "carousel-dot w-2 h-2 rounded-full bg-parchment/20 transition-all duration-300 cursor-pointer hover:bg-gold/40";
+    dot.setAttribute("aria-label", `Ir a certificacion ${i + 1}`);
+    dot.addEventListener("click", () => goTo(i + 1));
+    dotsContainer.appendChild(dot);
+  }
+
+  // Set initial position (first real card, no animation)
+  goTo(1, false);
+
+  // Arrow events
+  nextBtn.addEventListener("click", () => {
+    stopAuto();
+    next();
+    startAuto();
+  });
+
+  prevBtn.addEventListener("click", () => {
+    stopAuto();
+    prev();
+    startAuto();
+  });
+
+  // Keyboard
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") {
+      stopAuto();
+      next();
+      startAuto();
+    } else if (e.key === "ArrowLeft") {
+      stopAuto();
+      prev();
+      startAuto();
+    }
+  });
+
+  // Pause on hover
+  const container = viewport.closest(".carousel-container");
+  if (container) {
+    container.addEventListener("mouseenter", stopAuto);
+    container.addEventListener("mouseleave", startAuto);
+
+    // Touch: pause while touching
+    let touchMoved = false;
+    container.addEventListener("touchstart", () => {
+      stopAuto();
+      touchMoved = false;
+    });
+    container.addEventListener("touchmove", () => {
+      touchMoved = true;
+    });
+    container.addEventListener("touchend", () => {
+      if (!touchMoved) {
+        // Was a tap, not a swipe
+        startAuto();
+      } else {
+        // Was a swipe, restart auto after delay
+        setTimeout(startAuto, 3000);
+      }
+    });
+  }
+
+  // Visibility: pause when tab hidden
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      stopAuto();
+    } else {
+      startAuto();
+    }
+  });
+
+  // Recalculate on resize
+  let resizeTimer: number | undefined;
+  window.addEventListener("resize", () => {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(() => {
+      stopAuto();
+      goTo(currentIndex, false);
+      startAuto();
+    }, 200);
+  });
+
+  // Start auto-play
+  startAuto();
+</script>
