@@ -46,10 +46,16 @@ const backBg: Record<string, string> = {
 ---
 
 <div
-  class="flip-card group cursor-pointer"
+  class="flip-card group cursor-pointer relative"
   data-skill-name={name}
   data-skill-category={category}
 >
+  <!-- Rotating gradient border on hover (same effect as project cards) -->
+  <div
+    class="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+    style="padding: 1px; background: linear-gradient(135deg, #C9A84C, #00D4FF, #00FF41, #C9A84C); background-size: 300% 300%; mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); mask-composite: exclude; -webkit-mask-composite: xor; animation: border-rotate 4s linear infinite;"
+  ></div>
+
   <div class="flip-card-inner relative w-full">
     <!-- Front -->
     <div
