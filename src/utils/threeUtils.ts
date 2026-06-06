@@ -19,7 +19,7 @@ const PALETTE = {
 // The ring edge is the "lip", the center dips down.
 // ---------------------------------------------------------------------------
 
-const BACKGROUND_STAR_COUNT = 5000;
+const BACKGROUND_STAR_COUNT = 8000;
 const RING_PARTICLE_COUNT = 6000;
 const PARTICLE_COUNT = BACKGROUND_STAR_COUNT + RING_PARTICLE_COUNT;
 const SHADOW_PARTICLE_COUNT = 2500;
