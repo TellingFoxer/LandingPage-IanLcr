@@ -26,7 +26,7 @@ const RING_SPREAD = 5.0;   // wider spread for full tunnel coverage
 const RING_HEIGHT = 3.5;   // more vertical depth
 const DEPTH_DROP = 10.0;   // deeper center
 
-function createRingNebula(): {
+function createRingNebula(mobile = false): {
   points: THREE.Points;
   geometry: THREE.BufferGeometry;
   phases: Float32Array;
@@ -75,10 +75,18 @@ function createRingNebula(): {
     const depthProgress = Math.max(0, (RING_RADIUS - radius)) / RING_RADIUS; // 0 (at lip) → 1 (at center)
     const yOffset = -depthProgress * DEPTH_DROP + gauss2 * RING_HEIGHT * (0.3 + depthProgress * 0.7);
 
-    // Cartesian from polar
-    positions[i * 3]     = Math.cos(angle) * radius;
-    positions[i * 3 + 1] = yOffset;
-    positions[i * 3 + 2] = Math.sin(angle) * radius;
+    // Cartesian from polar — on mobile, rotate 90° so ring stands vertical
+    if (mobile) {
+      // Vertical column: ring opens in X-Y, depth in Z
+      positions[i * 3]     = Math.cos(angle) * radius;
+      positions[i * 3 + 1] = Math.sin(angle) * radius;
+      positions[i * 3 + 2] = yOffset;
+    } else {
+      // Horizontal ring: ring opens in X-Z, depth in Y
+      positions[i * 3]     = Math.cos(angle) * radius;
+      positions[i * 3 + 1] = yOffset;
+      positions[i * 3 + 2] = Math.sin(angle) * radius;
+    }
 
     // Color: deeper particles are dimmer, with shifted hue
     const col = paletteColors[Math.floor(Math.random() * paletteColors.length)];
@@ -154,11 +162,19 @@ export function createBackgroundScene(container: HTMLElement): () => void {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 100);
   // Slightly elevated, looking slightly down into the ring
-  camera.position.set(0, 8, 28);
-  camera.lookAt(0, -1, 0);
+  const isMobile = width / height < 1;
+
+  // Camera position — mobile: centered, desktop: elevated looking down
+  if (isMobile) {
+    camera.position.set(0, 0, 28);
+    camera.lookAt(0, 0, 0);
+  } else {
+    camera.position.set(0, 8, 28);
+    camera.lookAt(0, -1, 0);
+  }
 
   // --- Ring nebula ---
-  const { points, geometry, phases, baseRadii, baseY } = createRingNebula();
+  const { points, geometry, phases, baseRadii, baseY } = createRingNebula(isMobile);
   scene.add(points);
 
   // --- Shadow particles (below the halo) ---
@@ -180,8 +196,16 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     const angle = Math.random() * Math.PI * 2;
     const r = Math.random() * RING_RADIUS * 1.3;
     shadowPos[i * 3]     = Math.cos(angle) * r;
-    shadowPos[i * 3 + 1] = -6 - Math.random() * 5; // deep below
-    shadowPos[i * 3 + 2] = Math.sin(angle) * r;
+
+    if (isMobile) {
+      // Mobile: shadow extends behind (negative Z)
+      shadowPos[i * 3 + 1] = Math.sin(angle) * r;
+      shadowPos[i * 3 + 2] = -6 - Math.random() * 5;
+    } else {
+      // Desktop: shadow extends below (negative Y)
+      shadowPos[i * 3 + 1] = -6 - Math.random() * 5;
+      shadowPos[i * 3 + 2] = Math.sin(angle) * r;
+    }
 
     const col = shadowPalette[Math.floor(Math.random() * shadowPalette.length)];
     const dim = 0.3 + Math.random() * 0.7;
