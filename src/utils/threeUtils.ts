@@ -275,11 +275,12 @@ function createParticleSystem(): {
         const vec3 green = vec3(0.000, 1.000, 0.255);
 
         void main() {
-          // Sweep draws edges one by one: 0 → uEdgeCount, then resets sharply
-          float sweep = mod(uTime * 0.35, uEdgeCount + 1.5);
-          float tail  = 0.35;
-          float visible = smoothstep(sweep - tail, sweep, vProgress);
-          if (visible < 0.01) discard;
+          // Sweep draws edges one by one: 0 → uEdgeCount, then resets
+          float sweep = mod(uTime * 0.50, uEdgeCount + 1.2);
+          float tail  = 0.30;
+          // visible = 1 when edge is before the sweep head, 0 when ahead
+          float visible = 1.0 - smoothstep(sweep - tail, sweep, vProgress);
+          if (visible < 0.02) discard;
 
           // Cycling gradient: gold → cyan → green → gold
           float phase = fract(uTime * 0.06 + vProgress * 1.2);
