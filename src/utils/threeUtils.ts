@@ -86,7 +86,7 @@ function createRingNebula(mobile = false): {
     colors[i3 + 2] = col.b * brightness;
 
     // Small, crisp points
-    sizes[i] = 0.04 + Math.random() * 0.16;
+    sizes[i] = 0.10 + Math.random() * 0.18;
 
     phases[i] = Math.random() * Math.PI * 2;
     baseRadii[i] = r;
@@ -287,15 +287,26 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     points.rotation.z += 0.0004;
     points.rotation.x = Math.sin(t * 0.015) * 0.01;
 
-    // Breathing — ring particles oscillate in XY, bg stars just rotate
+    // Rotate all particles: bg stars + ring together in XY
     const posArr = geometry.attributes.position.array as Float32Array;
+
+    // Background stars: smooth rotation, no breathing, no Z drift
+    for (let i = 0; i < BACKGROUND_STAR_COUNT; i++) {
+      const i3 = i * 3;
+      const baseR = baseRadii[i];
+      const currentAngle = Math.atan2(posArr[i3 + 1], posArr[i3]) + 0.0002;
+      posArr[i3]     = Math.cos(currentAngle) * baseR;
+      posArr[i3 + 1] = Math.sin(currentAngle) * baseR;
+      // Z stays fixed — stars never enter the tunnel
+    }
+
+    // Ring particles: breathing + rotation + depth drift
     for (let i = BACKGROUND_STAR_COUNT; i < PARTICLE_COUNT; i++) {
       const i3 = i * 3;
       const baseR = baseRadii[i];
       const baseYVal = baseY[i];
       const phase = phases[i];
 
-      // Subtle radial breathing in XY plane
       const breathe = Math.sin(t * 0.25 + phase) * 0.15;
       const currentR = baseR + breathe;
 
@@ -303,7 +314,6 @@ export function createBackgroundScene(container: HTMLElement): () => void {
       posArr[i3]     = Math.cos(currentAngle) * currentR;
       posArr[i3 + 1] = Math.sin(currentAngle) * currentR;
 
-      // Subtle depth drift in Z
       posArr[i3 + 2] = baseYVal + Math.sin(t * 0.35 + phase * 1.5) * 0.06;
     }
     geometry.attributes.position.needsUpdate = true;
