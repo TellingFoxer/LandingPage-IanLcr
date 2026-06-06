@@ -227,29 +227,26 @@ function createParticleSystem(): {
 
   const points = new THREE.Points(geometry, material);
 
-  // ---- Constellation lines: animated drawing + gradient color cycling ----
+  // ---- Constellation lines: sequential point-to-point drawing + gradient color ----
   const lineGroup = new THREE.Group();
-
-  // Shared time uniform for all line materials (cycling gradient + draw sweep)
-  const lineUniforms = { uTime: { value: 0 } };
   const lineMaterials: THREE.ShaderMaterial[] = [];
 
   for (let c = 0; c < CONSTELLATION_DEFS.length; c++) {
     const def = CONSTELLATION_DEFS[c];
     const nodeIndices = constNodeMap[c];
+    const edgeCount = def.edges.length;
 
     const lineVerts: number[] = [];
-    const lineProgress: number[] = []; // 0→1 along each segment
+    const lineProgress: number[] = [];
 
-    for (const [a, b] of def.edges) {
+    for (let e = 0; e < edgeCount; e++) {
+      const [a, b] = def.edges[e];
       const ia3 = nodeIndices[a] * 3;
       const ib3 = nodeIndices[b] * 3;
-      // segment start
       lineVerts.push(positions[ia3], positions[ia3 + 1], positions[ia3 + 2]);
-      lineProgress.push(0.0);
-      // segment end
+      lineProgress.push(e);
       lineVerts.push(positions[ib3], positions[ib3 + 1], positions[ib3 + 2]);
-      lineProgress.push(1.0);
+      lineProgress.push(e + 1);
     }
 
     const lineGeo = new THREE.BufferGeometry();
@@ -257,7 +254,10 @@ function createParticleSystem(): {
     lineGeo.setAttribute("progress", new THREE.BufferAttribute(new Float32Array(lineProgress), 1));
 
     const lineMat = new THREE.ShaderMaterial({
-      uniforms: lineUniforms,
+      uniforms: {
+        uTime: { value: 0 },
+        uEdgeCount: { value: edgeCount },
+      },
       vertexShader: `
         varying float vProgress;
         void main() {
@@ -269,16 +269,16 @@ function createParticleSystem(): {
       fragmentShader: `
         varying float vProgress;
         uniform float uTime;
-        // Card border gradient colors
+        uniform float uEdgeCount;
         const vec3 gold  = vec3(0.788, 0.659, 0.298);
         const vec3 cyan  = vec3(0.000, 0.831, 1.000);
         const vec3 green = vec3(0.000, 1.000, 0.255);
 
         void main() {
-          // Sweeping draw: reveal line from 0→1, wrap around
-          float sweep = fract(uTime * 0.18);
-          float tail = sweep - 0.30; // 30% tail behind the sweep head
-          float visible = smoothstep(tail, sweep, vProgress);
+          // Sweep draws edges one by one: 0 → uEdgeCount
+          float sweep = fract(uTime * 0.10) * uEdgeCount;
+          float tail  = 0.55; // how much of previous edge stays visible
+          float visible = smoothstep(sweep - tail, sweep, vProgress);
           if (visible < 0.01) discard;
 
           // Cycling gradient: gold → cyan → green → gold
