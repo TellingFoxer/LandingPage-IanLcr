@@ -12,23 +12,25 @@ const PALETTE = {
 };
 
 // ---------------------------------------------------------------------------
-// Ring Nebula — particle-based halo
+// Ring Nebula — particle-based halo with depth
 // ---------------------------------------------------------------------------
-// 800 particles distributed in a gaussian ring around center.
-// Each particle is a tiny glowing dot; together they form a nebula halo.
-// Soft breathing animation + slow rotation.
+// 1000 particles in a gaussian ring. Particles closer to center descend
+// lower (negative Y), creating depth — like looking into a torus from above.
+// The ring edge is the "lip", the center dips down.
 // ---------------------------------------------------------------------------
 
-const PARTICLE_COUNT = 800;
-const RING_RADIUS = 12;    // in 3D units (camera at z=30)
-const RING_SPREAD = 3.0;   // gaussian spread of particles from ring center
-const RING_HEIGHT = 1.5;   // vertical spread
+const PARTICLE_COUNT = 1000;
+const RING_RADIUS = 12;    // radius of the ring lip
+const RING_SPREAD = 3.5;   // gaussian spread outward from ring center
+const RING_HEIGHT = 1.8;   // vertical spread at the lip
+const DEPTH_DROP = 8.0;    // how deep particles drop toward center
 
 function createRingNebula(): {
   points: THREE.Points;
   geometry: THREE.BufferGeometry;
-  phases: Float32Array;   // per-particle animation phase offset
-  baseRadii: Float32Array; // base radius for each particle
+  phases: Float32Array;
+  baseRadii: Float32Array;
+  baseY: Float32Array;
 } {
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(PARTICLE_COUNT * 3);
@@ -36,53 +38,76 @@ function createRingNebula(): {
   const sizes = new Float32Array(PARTICLE_COUNT);
   const phases = new Float32Array(PARTICLE_COUNT);
   const baseRadii = new Float32Array(PARTICLE_COUNT);
+  const baseY = new Float32Array(PARTICLE_COUNT);
 
   const paletteColors = [
     PALETTE.gold,
     PALETTE.aeroCyan,
     PALETTE.neonGreen,
-    PALETTE.gold.clone().multiplyScalar(0.4),   // dim gold
-    PALETTE.aeroCyan.clone().multiplyScalar(0.3), // dim cyan
+    PALETTE.gold.clone().multiplyScalar(0.5),
+    PALETTE.aeroCyan.clone().multiplyScalar(0.4),
   ];
 
   for (let i = 0; i < PARTICLE_COUNT; i++) {
-    // Gaussian distribution around the ring
-    // Box-Muller transform for gaussian random
-    const u1 = Math.random();
+    // Gaussian random (Box-Muller)
+    const u1 = Math.max(Math.random(), 1e-10);
     const u2 = Math.random();
-    const gauss = Math.sqrt(-2 * Math.log(Math.max(u1, 1e-10))) * Math.cos(2 * Math.PI * u2);
-    const gauss2 = Math.sqrt(-2 * Math.log(Math.max(u1, 1e-10))) * Math.sin(2 * Math.PI * u2);
+    const gauss = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    const gauss2 = Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2);
 
     const angle = Math.random() * Math.PI * 2;
-    const radiusOffset = gauss * RING_SPREAD;
-    const radius = RING_RADIUS + radiusOffset;
-    const heightOffset = gauss2 * RING_HEIGHT;
+
+    // Most particles cluster at the ring radius (the "lip")
+    // But ~40% scatter inward to create depth
+    let radius: number;
+    let yOffset: number;
+    let distFromRing: number;
+
+    if (Math.random() < 0.6) {
+      // Particles AT the ring lip (main halo)
+      radius = RING_RADIUS + gauss * RING_SPREAD * 0.3;
+      distFromRing = Math.abs(radius - RING_RADIUS);
+      yOffset = gauss2 * RING_HEIGHT;
+    } else {
+      // Particles INSIDE the ring (depth toward center)
+      // Random radius inward, with gaussian spread
+      const inwardGauss = Math.abs(gauss);
+      const inwardFactor = Math.random();
+      radius = RING_RADIUS * (0.2 + inwardFactor * 0.8); // 20%..100% of ring radius
+      distFromRing = RING_RADIUS - radius;
+
+      // Drop Y proportionally to how far inside they are
+      const depthProgress = distFromRing / RING_RADIUS; // 0 (at lip) → 1 (at center)
+      yOffset = -depthProgress * DEPTH_DROP + gauss2 * RING_HEIGHT * (0.5 + depthProgress);
+    }
 
     // Cartesian from polar
     positions[i * 3]     = Math.cos(angle) * radius;
-    positions[i * 3 + 1] = heightOffset;
+    positions[i * 3 + 1] = yOffset;
     positions[i * 3 + 2] = Math.sin(angle) * radius;
 
-    // Color
+    // Color: deeper particles are dimmer, with shifted hue
     const col = paletteColors[Math.floor(Math.random() * paletteColors.length)];
-    colors[i * 3]     = col.r;
-    colors[i * 3 + 1] = col.g;
-    colors[i * 3 + 2] = col.b;
+    const depthDim = (yOffset < 0) ? Math.max(0.3, 1.0 + yOffset / DEPTH_DROP) : 1.0;
+    colors[i * 3]     = col.r * depthDim;
+    colors[i * 3 + 1] = col.g * depthDim;
+    colors[i * 3 + 2] = col.b * depthDim;
 
-    // Size — closer to ring center = slightly larger (denser core)
-    const distFromRing = Math.abs(radiusOffset);
-    sizes[i] = 0.15 + Math.random() * 0.2 + Math.max(0, 0.2 - distFromRing * 0.15);
+    // Size: lip particles larger, deeper particles smaller
+    const sizeBase = 0.15 + Math.random() * 0.25;
+    const sizeDepth = (yOffset < 0) ? Math.max(0.4, 1.0 + yOffset / DEPTH_DROP * 0.6) : 1.0;
+    sizes[i] = sizeBase * sizeDepth;
 
-    // Per-particle animation phase
+    // Animation
     phases[i] = Math.random() * Math.PI * 2;
     baseRadii[i] = radius;
+    baseY[i] = yOffset;
   }
 
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
 
-  // Custom shader material for per-particle size and glow
   const material = new THREE.ShaderMaterial({
     vertexShader: `
       attribute float size;
@@ -97,11 +122,10 @@ function createRingNebula(): {
     fragmentShader: `
       varying vec3 vColor;
       void main() {
-        // Soft circle with glow
         float d = length(gl_PointCoord - 0.5);
         if (d > 0.5) discard;
         float alpha = 1.0 - smoothstep(0.0, 0.5, d);
-        alpha = pow(alpha, 1.5); // softer falloff
+        alpha = pow(alpha, 1.5);
         gl_FragColor = vec4(vColor, alpha);
       }
     `,
@@ -113,7 +137,7 @@ function createRingNebula(): {
   });
 
   const points = new THREE.Points(geometry, material);
-  return { points, geometry, phases, baseRadii };
+  return { points, geometry, phases, baseRadii, baseY };
 }
 
 // ---------------------------------------------------------------------------
@@ -124,7 +148,6 @@ export function createBackgroundScene(container: HTMLElement): () => void {
   const width = window.innerWidth;
   const height = window.innerHeight;
 
-  // --- Renderer ---
   const renderer = new THREE.WebGLRenderer({
     alpha: true,
     antialias: false,
@@ -134,18 +157,18 @@ export function createBackgroundScene(container: HTMLElement): () => void {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   container.appendChild(renderer.domElement);
 
-  // --- Scene & Camera ---
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 100);
-  camera.position.set(0, 5, 28);
-  camera.lookAt(0, 0, 0);
+  // Slightly elevated, looking slightly down into the ring
+  camera.position.set(0, 8, 28);
+  camera.lookAt(0, -1, 0);
 
   // --- Ring nebula ---
-  const { points, geometry, phases, baseRadii } = createRingNebula();
+  const { points, geometry, phases, baseRadii, baseY } = createRingNebula();
   scene.add(points);
 
-  // --- Ambient center glow (subtle fog) ---
-  const glowGeometry = new THREE.PlaneGeometry(40, 40);
+  // --- Ambient glow plane (subtle) ---
+  const glowGeometry = new THREE.PlaneGeometry(50, 50);
   const glowMaterial = new THREE.ShaderMaterial({
     vertexShader: `
       varying vec2 vUv;
@@ -156,32 +179,24 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     `,
     fragmentShader: `
       varying vec2 vUv;
-      uniform float uTime;
       void main() {
         vec2 center = vUv - 0.5;
         float d = length(center);
-        // Ring-shaped glow
-        float ringDist = abs(d - 0.3);
-        float ringGlow = exp(-ringDist * ringDist * 150.0) * 0.15;
-        // Soft center
-        float centerGlow = exp(-d * 4.0) * 0.04;
+        float ringDist = abs(d - 0.28);
+        float ringGlow = exp(-ringDist * ringDist * 200.0) * 0.12;
+        float centerGlow = exp(-d * 5.0) * 0.03;
         float glow = ringGlow + centerGlow;
-        vec3 color = mix(
-          vec3(0.79, 0.66, 0.30),  // gold
-          vec3(0.0, 0.83, 1.0),    // cyan
-          glow
-        );
-        gl_FragColor = vec4(color, glow * 0.5);
+        vec3 color = mix(vec3(0.79, 0.66, 0.30), vec3(0.0, 0.83, 1.0), glow);
+        gl_FragColor = vec4(color, glow * 0.4);
       }
     `,
-    uniforms: { uTime: { value: 0 } },
     depthWrite: false,
     transparent: true,
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
   });
   const glowPlane = new THREE.Mesh(glowGeometry, glowMaterial);
-  glowPlane.position.z = -5;
+  glowPlane.position.set(0, -2, -8);
   scene.add(glowPlane);
 
   // --- Animation loop ---
@@ -194,43 +209,41 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     animId = requestAnimationFrame(animate);
     if (!isVisible) return;
     frameCount++;
-    if (frameCount % 2 !== 0) return; // ~30fps
+    if (frameCount % 2 !== 0) return;
 
     const now = performance.now();
     const dt = Math.min((now - lastTime) / 1000, 0.1);
     lastTime = now;
-
-    const t = now * 0.001; // seconds since start
+    const t = now * 0.001;
 
     // Slow rotation
-    points.rotation.y += 0.0004;
-    points.rotation.x = Math.sin(t * 0.02) * 0.02; // subtle tilt
+    points.rotation.y += 0.0003;
+    points.rotation.x = Math.sin(t * 0.015) * 0.015;
 
-    // Breathing: subtle radius oscillation
+    // Breathing — particles oscillate slightly
     const posArr = geometry.attributes.position.array as Float32Array;
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       const i3 = i * 3;
       const baseR = baseRadii[i];
+      const baseYVal = baseY[i];
       const phase = phases[i];
 
-      // Subtle breathing per particle
-      const breathe = Math.sin(t * 0.3 + phase) * 0.15;
+      // Subtle radial breathing
+      const breathe = Math.sin(t * 0.25 + phase) * 0.12;
       const currentR = baseR + breathe;
 
-      const currentAngle = Math.atan2(posArr[i3 + 2], posArr[i3]) + 0.0002;
+      const currentAngle = Math.atan2(posArr[i3 + 2], posArr[i3]) + 0.00015;
       posArr[i3]     = Math.cos(currentAngle) * currentR;
       posArr[i3 + 2] = Math.sin(currentAngle) * currentR;
 
       // Subtle vertical drift
-      posArr[i3 + 1] += Math.sin(t * 0.4 + phase * 2.0) * 0.002;
+      posArr[i3 + 1] = baseYVal + Math.sin(t * 0.35 + phase * 1.5) * 0.003;
     }
     geometry.attributes.position.needsUpdate = true;
 
-    // Render
     renderer.render(scene, camera);
   }
 
-  // --- Visibility ---
   function onVisibilityChange() {
     isVisible = !document.hidden;
     if (isVisible) lastTime = performance.now();
@@ -239,7 +252,6 @@ export function createBackgroundScene(container: HTMLElement): () => void {
 
   animate();
 
-  // --- Resize ---
   function onResize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -249,7 +261,6 @@ export function createBackgroundScene(container: HTMLElement): () => void {
   }
   window.addEventListener("resize", onResize);
 
-  // --- Cleanup ---
   return () => {
     cancelAnimationFrame(animId);
     document.removeEventListener("visibilitychange", onVisibilityChange);
