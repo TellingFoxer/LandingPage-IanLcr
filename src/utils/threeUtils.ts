@@ -227,87 +227,59 @@ function createParticleSystem(): {
 
   const points = new THREE.Points(geometry, material);
 
-  // ---- Constellation lines: sequential point-to-point drawing + gradient color ----
+  // ---- Constellation lines: sequential edge-by-edge drawing ----
   const lineGroup = new THREE.Group();
-  const lineMaterials: THREE.ShaderMaterial[] = [];
+  const allEdgeLines: { line: THREE.LineSegments; constIdx: number; edgeIdx: number }[] = [];
 
   for (let c = 0; c < CONSTELLATION_DEFS.length; c++) {
     const def = CONSTELLATION_DEFS[c];
     const nodeIndices = constNodeMap[c];
-    const edgeCount = def.edges.length;
+    const colorHex = "#" + def.color.getHexString();
 
-    const lineVerts: number[] = [];
-    const lineProgress: number[] = [];
-
-    for (let e = 0; e < edgeCount; e++) {
+    for (let e = 0; e < def.edges.length; e++) {
       const [a, b] = def.edges[e];
       const ia3 = nodeIndices[a] * 3;
       const ib3 = nodeIndices[b] * 3;
-      lineVerts.push(positions[ia3], positions[ia3 + 1], positions[ia3 + 2]);
-      lineProgress.push(e);
-      lineVerts.push(positions[ib3], positions[ib3 + 1], positions[ib3 + 2]);
-      lineProgress.push(e + 1);
+
+      const edgeGeo = new THREE.BufferGeometry();
+      edgeGeo.setAttribute(
+        "position",
+        new THREE.BufferAttribute(
+          new Float32Array([
+            positions[ia3], positions[ia3 + 1], positions[ia3 + 2],
+            positions[ib3], positions[ib3 + 1], positions[ib3 + 2],
+          ]),
+          3
+        )
+      );
+
+      const edgeMat = new THREE.LineBasicMaterial({
+        color: new THREE.Color(colorHex),
+        linewidth: 1,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        depthTest: false,
+        blending: THREE.AdditiveBlending,
+      });
+
+      const edgeLine = new THREE.LineSegments(edgeGeo, edgeMat);
+      lineGroup.add(edgeLine);
+      allEdgeLines.push({ line: edgeLine, constIdx: c, edgeIdx: e });
     }
-
-    const lineGeo = new THREE.BufferGeometry();
-    lineGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(lineVerts), 3));
-    lineGeo.setAttribute("progress", new THREE.BufferAttribute(new Float32Array(lineProgress), 1));
-
-    const lineMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 1.0 },
-        uEdgeCount: { value: edgeCount },
-      },
-      vertexShader: `
-        varying float vProgress;
-        void main() {
-          vProgress = progress;
-          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_Position = projectionMatrix * mvPosition;
-        }
-      `,
-      fragmentShader: `
-        varying float vProgress;
-        uniform float uTime;
-        uniform float uEdgeCount;
-        const vec3 gold  = vec3(0.788, 0.659, 0.298);
-        const vec3 cyan  = vec3(0.000, 0.831, 1.000);
-        const vec3 green = vec3(0.000, 1.000, 0.255);
-
-        void main() {
-          // Sweep draws edges one by one: 0 → uEdgeCount, resets fast
-          float sweep = mod(uTime * 2.0, uEdgeCount + 0.6);
-          float tail  = 0.25;
-          float visible = 1.0 - smoothstep(sweep - tail, sweep, vProgress);
-
-          // Cycling gradient: gold → cyan → green → gold
-          float phase = fract(uTime * 0.06 + vProgress * 1.2);
-          vec3 col;
-          if (phase < 0.33) {
-            col = mix(gold, cyan, phase / 0.33);
-          } else if (phase < 0.66) {
-            col = mix(cyan, green, (phase - 0.33) / 0.33);
-          } else {
-            col = mix(green, gold, (phase - 0.66) / 0.34);
-          }
-
-          float alpha = visible * 0.7;
-          if (alpha < 0.02) discard;
-          gl_FragColor = vec4(col, alpha);
-        }
-      `,
-      depthWrite: false,
-      depthTest: false,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-    });
-
-    lineMaterials.push(lineMat);
-    const lines = new THREE.LineSegments(lineGeo, lineMat);
-    lineGroup.add(lines);
   }
 
-  return { points, geometry, ringStart, ringBaseAngle: baseAngle, ringBaseRadii: baseRadii, ringBaseY: baseY, ringPhases: phases, lineGroup, lineMaterials };
+  return {
+    points,
+    geometry,
+    ringStart,
+    ringBaseAngle: baseAngle,
+    ringBaseRadii: baseRadii,
+    ringBaseY: baseY,
+    ringPhases: phases,
+    lineGroup,
+    edgeLines: allEdgeLines,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -343,7 +315,7 @@ export function createBackgroundScene(container: HTMLElement): () => void {
   const portalGroup = new THREE.Group();
   scene.add(portalGroup);
 
-  const { points, geometry, ringStart, ringBaseAngle, ringBaseRadii, ringBaseY, ringPhases, lineGroup, lineMaterials } = createParticleSystem();
+  const { points, geometry, ringStart, ringBaseAngle, ringBaseRadii, ringBaseY, ringPhases, lineGroup, edgeLines } = createParticleSystem();
   portalGroup.add(points);
   portalGroup.add(lineGroup);
 
@@ -432,9 +404,19 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     portalGroup.rotation.z += 0.0006;
     portalGroup.rotation.x = Math.sin(t * 0.015) * 0.01;
 
-    // Update constellation line animation (sweeping draw + color cycle)
-    for (const mat of lineMaterials) {
-      mat.uniforms.uTime.value = t;
+    // Update constellation lines: sequential draw — one edge fades in at a time
+    // All constellations draw simultaneously, edge by edge
+    const maxEdges = Math.max(...CONSTELLATION_DEFS.map(d => d.edges.length));
+    const cycleTime = 4.0; // full cycle in seconds
+    const rawSweep = (t % cycleTime) / cycleTime * maxEdges;
+    const globalEdge = Math.floor(rawSweep);
+    const edgeFrac = rawSweep - globalEdge; // 0→1 for current edge
+
+    for (const el of edgeLines) {
+      const targetOp = el.edgeIdx < globalEdge ? 1.0
+        : el.edgeIdx === globalEdge ? edgeFrac
+        : 0;
+      el.line.material.opacity = targetOp * 0.85;
     }
 
     // Ring particles: breathing (radius + Z drift) — rotation handled by portalGroup
