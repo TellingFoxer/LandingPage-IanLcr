@@ -19,12 +19,12 @@ const PALETTE = {
 // The ring edge is the "lip", the center dips down.
 // ---------------------------------------------------------------------------
 
-const PARTICLE_COUNT = 2000;
-const SHADOW_PARTICLE_COUNT = 500;
+const PARTICLE_COUNT = 6000;
+const SHADOW_PARTICLE_COUNT = 2000;
 const RING_RADIUS = 12;    // radius of the ring lip
-const RING_SPREAD = 3.5;   // gaussian spread outward from ring center
-const RING_HEIGHT = 1.8;   // vertical spread at the lip
-const DEPTH_DROP = 8.0;    // how deep particles drop toward center
+const RING_SPREAD = 5.0;   // wider spread for full tunnel coverage
+const RING_HEIGHT = 3.5;   // more vertical depth
+const DEPTH_DROP = 10.0;   // deeper center
 
 function createRingNebula(): {
   points: THREE.Points;
@@ -61,29 +61,19 @@ function createRingNebula(): {
 
     const angle = Math.random() * Math.PI * 2;
 
-    // Most particles cluster at the ring radius (the "lip")
-    // But ~40% scatter inward to create depth
-    let radius: number;
-    let yOffset: number;
-    let distFromRing: number;
+    // Uniform distribution across the full volume (tunnel effect)
+    // Random radius from center to well past the lip
+    const u3 = Math.random();
+    const u4 = Math.random();
+    const gauss3 = Math.sqrt(-2 * Math.max(u3, 1e-10)) * Math.cos(2 * Math.PI * u4);
 
-    if (Math.random() < 0.6) {
-      // Particles AT the ring lip (main halo)
-      radius = RING_RADIUS + gauss * RING_SPREAD * 0.3;
-      distFromRing = Math.abs(radius - RING_RADIUS);
-      yOffset = gauss2 * RING_HEIGHT;
-    } else {
-      // Particles INSIDE the ring (depth toward center)
-      // Random radius inward, with gaussian spread
-      const inwardGauss = Math.abs(gauss);
-      const inwardFactor = Math.random();
-      radius = RING_RADIUS * (0.2 + inwardFactor * 0.8); // 20%..100% of ring radius
-      distFromRing = RING_RADIUS - radius;
+    const radialFactor = Math.random(); // 0=center, 1=lip
+    const radius = RING_RADIUS * 0.05 + radialFactor * RING_RADIUS * 1.3;
+    const distFromRing = Math.abs(radius - RING_RADIUS);
 
-      // Drop Y proportionally to how far inside they are
-      const depthProgress = distFromRing / RING_RADIUS; // 0 (at lip) → 1 (at center)
-      yOffset = -depthProgress * DEPTH_DROP + gauss2 * RING_HEIGHT * (0.5 + depthProgress);
-    }
+    // Drop Y proportionally to how far inside they are
+    const depthProgress = Math.max(0, (RING_RADIUS - radius)) / RING_RADIUS; // 0 (at lip) → 1 (at center)
+    const yOffset = -depthProgress * DEPTH_DROP + gauss2 * RING_HEIGHT * (0.3 + depthProgress * 0.7);
 
     // Cartesian from polar
     positions[i * 3]     = Math.cos(angle) * radius;
