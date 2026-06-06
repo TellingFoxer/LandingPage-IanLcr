@@ -227,59 +227,87 @@ function createParticleSystem(): {
 
   const points = new THREE.Points(geometry, material);
 
-  // ---- Constellation lines: separate LineSegments in a Group ----
+  // ---- Constellation lines: animated drawing + gradient color cycling ----
   const lineGroup = new THREE.Group();
+
+  // Shared time uniform for all line materials (cycling gradient + draw sweep)
+  const lineUniforms = { uTime: { value: 0 } };
+  const lineMaterials: THREE.ShaderMaterial[] = [];
 
   for (let c = 0; c < CONSTELLATION_DEFS.length; c++) {
     const def = CONSTELLATION_DEFS[c];
     const nodeIndices = constNodeMap[c];
 
-    // Build line segments from edges
     const lineVerts: number[] = [];
-    const lineCols: number[] = [];
+    const lineProgress: number[] = []; // 0→1 along each segment
 
     for (const [a, b] of def.edges) {
       const ia3 = nodeIndices[a] * 3;
       const ib3 = nodeIndices[b] * 3;
-      // start
+      // segment start
       lineVerts.push(positions[ia3], positions[ia3 + 1], positions[ia3 + 2]);
-      lineCols.push(def.color.r, def.color.g, def.color.b);
-      // end
+      lineProgress.push(0.0);
+      // segment end
       lineVerts.push(positions[ib3], positions[ib3 + 1], positions[ib3 + 2]);
-      lineCols.push(def.color.r, def.color.g, def.color.b);
+      lineProgress.push(1.0);
     }
 
     const lineGeo = new THREE.BufferGeometry();
     lineGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(lineVerts), 3));
-    lineGeo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(lineCols), 3));
+    lineGeo.setAttribute("progress", new THREE.BufferAttribute(new Float32Array(lineProgress), 1));
 
     const lineMat = new THREE.ShaderMaterial({
+      uniforms: lineUniforms,
       vertexShader: `
-        varying vec3 vColor;
+        varying float vProgress;
         void main() {
-          vColor = color;
+          vProgress = progress;
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
       fragmentShader: `
-        varying vec3 vColor;
+        varying float vProgress;
+        uniform float uTime;
+        // Card border gradient colors
+        const vec3 gold  = vec3(0.788, 0.659, 0.298);
+        const vec3 cyan  = vec3(0.000, 0.831, 1.000);
+        const vec3 green = vec3(0.000, 1.000, 0.255);
+
         void main() {
-          gl_FragColor = vec4(vColor, 0.35);
+          // Sweeping draw: reveal line from 0→1, wrap around
+          float sweep = fract(uTime * 0.18);
+          float tail = sweep - 0.30; // 30% tail behind the sweep head
+          float visible = smoothstep(tail, sweep, vProgress);
+          if (visible < 0.01) discard;
+
+          // Cycling gradient: gold → cyan → green → gold
+          float phase = fract(uTime * 0.06 + vProgress * 1.2);
+          vec3 col;
+          if (phase < 0.33) {
+            col = mix(gold, cyan, phase / 0.33);
+          } else if (phase < 0.66) {
+            col = mix(cyan, green, (phase - 0.33) / 0.33);
+          } else {
+            col = mix(green, gold, (phase - 0.66) / 0.34);
+          }
+
+          float alpha = visible * 0.45;
+          gl_FragColor = vec4(col, alpha);
         }
       `,
-      vertexColors: true,
       depthWrite: false,
       depthTest: false,
       transparent: true,
       blending: THREE.AdditiveBlending,
     });
 
+    lineMaterials.push(lineMat);
     const lines = new THREE.LineSegments(lineGeo, lineMat);
     lineGroup.add(lines);
   }
 
-  return { points, geometry, ringStart, ringBaseAngle: baseAngle, ringBaseRadii: baseRadii, ringBaseY: baseY, ringPhases: phases, lineGroup };
+  return { points, geometry, ringStart, ringBaseAngle: baseAngle, ringBaseRadii: baseRadii, ringBaseY: baseY, ringPhases: phases, lineGroup, lineMaterials };
 }
 
 // ---------------------------------------------------------------------------
@@ -315,7 +343,7 @@ export function createBackgroundScene(container: HTMLElement): () => void {
   const portalGroup = new THREE.Group();
   scene.add(portalGroup);
 
-  const { points, geometry, ringStart, ringBaseAngle, ringBaseRadii, ringBaseY, ringPhases, lineGroup } = createParticleSystem();
+  const { points, geometry, ringStart, ringBaseAngle, ringBaseRadii, ringBaseY, ringPhases, lineGroup, lineMaterials } = createParticleSystem();
   portalGroup.add(points);
   portalGroup.add(lineGroup);
 
@@ -403,6 +431,11 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     // Smooth group rotation — everything spins together
     portalGroup.rotation.z += 0.0006;
     portalGroup.rotation.x = Math.sin(t * 0.015) * 0.01;
+
+    // Update constellation line animation (sweeping draw + color cycle)
+    for (const mat of lineMaterials) {
+      mat.uniforms.uTime.value = t;
+    }
 
     // Ring particles: breathing (radius + Z drift) — rotation handled by portalGroup
     const posArr = geometry.attributes.position.array as Float32Array;
