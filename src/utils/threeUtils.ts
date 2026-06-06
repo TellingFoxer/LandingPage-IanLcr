@@ -309,6 +309,19 @@ function createParticleSystem(): {
     lineMaterials.push(lineMat);
     const lines = new THREE.LineSegments(lineGeo, lineMat);
     lineGroup.add(lines);
+
+    // DEBUG: solid fallback lines to verify geometry renders
+    const debugGeo = lineGeo.clone();
+    const debugMat = new THREE.LineBasicMaterial({
+      color: def.color,
+      transparent: true,
+      opacity: 0.6,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const debugLines = new THREE.LineSegments(debugGeo, debugMat);
+    lineGroup.add(debugLines);
   }
 
   return { points, geometry, ringStart, ringBaseAngle: baseAngle, ringBaseRadii: baseRadii, ringBaseY: baseY, ringPhases: phases, lineGroup, lineMaterials };
