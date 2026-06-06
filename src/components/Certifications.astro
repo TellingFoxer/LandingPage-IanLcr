@@ -1,6 +1,6 @@
 ---
 // Certifications.astro
-// Infinite horizontal carousel with auto-play, arrows, and snap scroll.
+// Infinite horizontal carousel with centered active card, auto-play, arrows.
 import { certifications } from "../data/certifications";
 ---
 
@@ -26,8 +26,11 @@ import { certifications } from "../data/certifications";
     <div class="carousel-viewport overflow-hidden rounded-2xl">
       <div class="carousel-track flex gap-4">
         {certifications.map((cert) => (
-          <div
-            class="cert-card shrink-0 w-[280px] sm:w-[320px] glass rounded-2xl p-6 flex flex-col justify-between border border-parchment/5 hover:border-gold/20 transition-all duration-500"
+          <a
+            href={cert.url || "#"}
+            target={cert.url ? "_blank" : "_self"}
+            rel={cert.url ? "noopener noreferrer" : undefined}
+            class="cert-card shrink-0 w-[280px] sm:w-[320px] glass rounded-2xl p-6 flex flex-col justify-between border border-parchment/5 hover:border-gold/20 transition-all duration-500 group cursor-pointer no-underline"
           >
             <!-- Top: issuer logo + date -->
             <div>
@@ -45,7 +48,7 @@ import { certifications } from "../data/certifications";
 
               <!-- Title -->
               <h3
-                class="font-serif text-lg font-semibold text-parchment/90 leading-snug mb-1"
+                class="font-serif text-lg font-semibold text-parchment/90 leading-snug mb-1 group-hover:text-gold transition-colors duration-300"
               >
                 {cert.title}
               </h3>
@@ -61,21 +64,16 @@ import { certifications } from "../data/certifications";
               </p>
             </div>
 
-            <!-- Bottom: verify link if present -->
-            {cert.link && (
-              <a
-                href={cert.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="mt-4 inline-flex items-center gap-1.5 text-[11px] text-gray-tech/50 hover:text-aero-cyan transition-colors duration-300 tracking-wide uppercase"
-              >
-                Verificar
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <!-- External indicator -->
+            {cert.url && (
+              <span class="mt-4 inline-flex items-center gap-1 text-[11px] text-gray-tech/40 group-hover:text-aero-cyan transition-colors duration-300 tracking-wide uppercase">
+                Ver credencial
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" class="opacity-50">
                   <path d="M1 11L11 1M11 1H3.5M11 1V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-              </a>
+              </span>
             )}
-          </div>
+          </a>
         ))}
       </div>
     </div>
@@ -110,12 +108,12 @@ import { certifications } from "../data/certifications";
 
   const cards = Array.from(track.children) as HTMLElement[];
   const total = cards.length;
-  let index = 0;
+  let currentIndex = 0;
   let interval: ReturnType<typeof setInterval> | null = null;
   let isTransitioning = false;
+  const gap = 16;
 
-  // Clone first and last for infinite illusion
-  // We'll clone first card at end, last card at beginning
+  // Clone first and last for seamless infinite loop
   const firstClone = cards[0].cloneNode(true) as HTMLElement;
   const lastClone = cards[total - 1].cloneNode(true) as HTMLElement;
   track.appendChild(firstClone);
@@ -123,82 +121,83 @@ import { certifications } from "../data/certifications";
 
   const allSlides = Array.from(track.children) as HTMLElement[];
   const totalSlides = allSlides.length;
-  // Start at the first real card (index 1, since index 0 is the clone of last)
-  let currentIndex = 1;
-  const gap = 16; // gap-4 = 1rem = 16px
+
+  // We start at the first real card (index 1, since index 0 is clone of last)
+  let slideIndex = 1;
+  // currentRealIndex = 0..total-1 for dots
+  let currentRealIndex = 0;
 
   function getCardWidth(): number {
     return allSlides[0]?.offsetWidth ?? 320;
   }
 
-  function getGapTotal(): number {
-    // gap is applied between cards, calculated from style or fixed
-    return gap;
+  function getViewportWidth(): number {
+    return viewport.offsetWidth;
   }
 
-  function goTo(rawIndex: number, animate = true) {
-    if (isTransitioning && animate) return;
-    isTransitioning = animate;
+  function calcOffset(idx: number): number {
+    const cardW = getCardWidth();
+    const vpW = getViewportWidth();
+    // Center the card in the viewport
+    // offset = -(idx * (cardW + gap)) + (vpW - cardW) / 2
+    return -(idx * (cardW + gap)) + (vpW - cardW) / 2;
+  }
 
-    currentIndex = rawIndex;
-    const cardWidth = getCardWidth();
-    const gapTotal = getGapTotal();
-    const offset = -(currentIndex * (cardWidth + gapTotal));
-
+  function updateTrack(animate = true) {
     if (animate) {
       track.style.transition = "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)";
     } else {
       track.style.transition = "none";
     }
+    track.style.transform = `translateX(${calcOffset(slideIndex)}px)`;
+  }
 
-    track.style.transform = `translateX(${offset}px)`;
-    updateDots();
+  // Force browser reflow (flush pending styles)
+  function forceReflow() {
+    track.offsetHeight; // triggers reflow
+  }
 
-    if (animate) {
-      setTimeout(() => {
-        isTransitioning = false;
-        // Handle infinite wrap
-        if (currentIndex === totalSlides - 1) {
-          // At last clone (which is clone of first) — jump to real first
-          track.style.transition = "none";
-          currentIndex = 1;
-          const newOffset = -(currentIndex * (cardWidth + gapTotal));
-          track.style.transform = `translateX(${newOffset}px)`;
-        } else if (currentIndex === 0) {
-          // At first clone (which is clone of last) — jump to real last
-          track.style.transition = "none";
-          currentIndex = total - 1; // total (real) - 1, but in the cloned set that's totalSlides - 2
-          // Actually: real last card is at index total (since clone of first is at index 0)
-          // total real cards = total, indexed 1..total in the cloned set
-          // real last is at index total (since clone of first is at index 0)
-          // Wait, let me recalculate:
-          // total real cards = total
-          // allSlides has: [clone_of_last, real_1, real_2, ..., real_N, clone_of_first]
-          // totalSlides = total + 2
-          // real_1 is at index 1, real_last is at index total
-          const realLastIndex = total;
-          currentIndex = realLastIndex;
-          const newOffset = -(currentIndex * (cardWidth + gapTotal));
-          track.style.transform = `translateX(${newOffset}px)`;
-        }
-      }, 550);
-    } else {
-      isTransitioning = false;
+  function handleTransitionEnd() {
+    isTransitioning = false;
+
+    // At the end — jumped into the clone of the first card
+    if (slideIndex >= totalSlides - 1) {
+      slideIndex = 1; // jump back to real first card
+      updateTrack(false);
+      forceReflow();
+      return;
+    }
+
+    // At the beginning — jumped into the clone of the last card
+    if (slideIndex <= 0) {
+      slideIndex = total; // jump back to real last card
+      updateTrack(false);
+      forceReflow();
+      return;
     }
   }
 
+  function goTo(newSlideIdx: number) {
+    if (isTransitioning) return;
+    isTransitioning = true;
+
+    slideIndex = newSlideIdx;
+    currentRealIndex = ((slideIndex - 1) % total + total) % total;
+    updateTrack(true);
+    updateDots();
+  }
+
   function next() {
-    goTo(currentIndex + 1);
+    goTo(slideIndex + 1);
   }
 
   function prev() {
-    goTo(currentIndex - 1);
+    goTo(slideIndex - 1);
   }
 
   function updateDots() {
-    const dotIndex = ((currentIndex - 1) % total + total) % total;
     dotsContainer.querySelectorAll<HTMLElement>(".carousel-dot").forEach((dot, i) => {
-      dot.classList.toggle("active", i === dotIndex);
+      dot.classList.toggle("active", i === currentRealIndex);
     });
   }
 
@@ -220,12 +219,24 @@ import { certifications } from "../data/certifications";
     dot.className =
       "carousel-dot w-2 h-2 rounded-full bg-parchment/20 transition-all duration-300 cursor-pointer hover:bg-gold/40";
     dot.setAttribute("aria-label", `Ir a certificacion ${i + 1}`);
-    dot.addEventListener("click", () => goTo(i + 1));
+    dot.dataset.index = String(i);
+    dot.addEventListener("click", () => {
+      stopAuto();
+      goTo(i + 1); // +1 because real cards start at index 1
+      startAuto();
+    });
     dotsContainer.appendChild(dot);
   }
 
-  // Set initial position (first real card, no animation)
-  goTo(1, false);
+  // Listen for transition end for seamless wrap
+  track.addEventListener("transitionend", handleTransitionEnd);
+
+  // Initial position (first real card, no animation)
+  slideIndex = 1;
+  currentRealIndex = 0;
+  updateTrack(false);
+  forceReflow();
+  updateDots();
 
   // Arrow events
   nextBtn.addEventListener("click", () => {
@@ -270,16 +281,14 @@ import { certifications } from "../data/certifications";
     });
     container.addEventListener("touchend", () => {
       if (!touchMoved) {
-        // Was a tap, not a swipe
         startAuto();
       } else {
-        // Was a swipe, restart auto after delay
         setTimeout(startAuto, 3000);
       }
     });
   }
 
-  // Visibility: pause when tab hidden
+  // Visibility
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       stopAuto();
@@ -294,7 +303,8 @@ import { certifications } from "../data/certifications";
     if (resizeTimer) clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(() => {
       stopAuto();
-      goTo(currentIndex, false);
+      updateTrack(false);
+      forceReflow();
       startAuto();
     }, 200);
   });

@@ -162,6 +162,14 @@ body {
   overflow: hidden;
 }
 
+/* Carousel active dot */
+.carousel-dot.active {
+  background: #C9A84C;
+  box-shadow: 0 0 8px rgba(201, 168, 76, 0.5);
+  width: 16px;
+  border-radius: 4px;
+}
+
 /* --- Focus visible --- */
 a:focus-visible,
 button:focus-visible {
