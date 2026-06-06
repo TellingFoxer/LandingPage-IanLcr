@@ -275,9 +275,9 @@ function createParticleSystem(): {
         const vec3 green = vec3(0.000, 1.000, 0.255);
 
         void main() {
-          // Sweep draws edges one by one: 0 → uEdgeCount
-          float sweep = fract(uTime * 0.10) * uEdgeCount;
-          float tail  = 0.55; // how much of previous edge stays visible
+          // Sweep draws edges one by one: 0 → uEdgeCount, then resets sharply
+          float sweep = mod(uTime * 0.35, uEdgeCount + 1.5);
+          float tail  = 0.35;
           float visible = smoothstep(sweep - tail, sweep, vProgress);
           if (visible < 0.01) discard;
 
