@@ -259,16 +259,41 @@ function createParticleSystem(): {
         uEdgeCount: { value: edgeCount },
       },
       vertexShader: `
+        varying float vProgress;
         void main() {
+          vProgress = progress;
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
       fragmentShader: `
+        varying float vProgress;
         uniform float uTime;
+        uniform float uEdgeCount;
+        const vec3 gold  = vec3(0.788, 0.659, 0.298);
+        const vec3 cyan  = vec3(0.000, 0.831, 1.000);
+        const vec3 green = vec3(0.000, 1.000, 0.255);
+
         void main() {
-          // MINIMAL TEST: solid orange, should be impossible to miss
-          gl_FragColor = vec4(1.0, 0.5, 0.0, 0.8);
+          // Sweep draws edges one by one: 0 → uEdgeCount
+          float sweep = mod(uTime * 0.50, uEdgeCount + 1.2);
+          float tail  = 0.30;
+          float visible = 1.0 - smoothstep(sweep - tail, sweep, vProgress);
+
+          // Cycling gradient: gold → cyan → green → gold
+          float phase = fract(uTime * 0.06 + vProgress * 1.2);
+          vec3 col;
+          if (phase < 0.33) {
+            col = mix(gold, cyan, phase / 0.33);
+          } else if (phase < 0.66) {
+            col = mix(cyan, green, (phase - 0.33) / 0.33);
+          } else {
+            col = mix(green, gold, (phase - 0.66) / 0.34);
+          }
+
+          float alpha = visible * 0.7;
+          if (alpha < 0.02) discard;
+          gl_FragColor = vec4(col, alpha);
         }
       `,
       depthWrite: false,
@@ -280,19 +305,6 @@ function createParticleSystem(): {
     lineMaterials.push(lineMat);
     const lines = new THREE.LineSegments(lineGeo, lineMat);
     lineGroup.add(lines);
-
-    // DEBUG: solid fallback lines to verify geometry renders
-    const debugGeo = lineGeo.clone();
-    const debugMat = new THREE.LineBasicMaterial({
-      color: def.color,
-      transparent: true,
-      opacity: 0.6,
-      blending: THREE.AdditiveBlending,
-      depthTest: false,
-      depthWrite: false,
-    });
-    const debugLines = new THREE.LineSegments(debugGeo, debugMat);
-    lineGroup.add(debugLines);
   }
 
   return { points, geometry, ringStart, ringBaseAngle: baseAngle, ringBaseRadii: baseRadii, ringBaseY: baseY, ringPhases: phases, lineGroup, lineMaterials };
