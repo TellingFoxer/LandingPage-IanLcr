@@ -19,12 +19,13 @@ const PALETTE = {
 // The ring edge is the "lip", the center dips down.
 // ---------------------------------------------------------------------------
 
-const PARTICLE_COUNT = 6000;
-const SHADOW_PARTICLE_COUNT = 2000;
-const RING_RADIUS = 12;    // radius of the ring lip
-const RING_SPREAD = 5.0;   // wider spread for full tunnel coverage
-const RING_HEIGHT = 3.5;   // more vertical depth
-const DEPTH_DROP = 10.0;   // deeper center
+const PARTICLE_COUNT = 8000;
+const SHADOW_PARTICLE_COUNT = 2500;
+// Desktop: ring faces camera (XY plane), depth into screen (Z)
+const RING_RADIUS = 44;
+const RING_SPREAD = 6.0;
+const RING_HEIGHT = 10;
+const DEPTH_DROP = 45;
 
 function createRingNebula(mobile = false): {
   points: THREE.Points;
@@ -75,18 +76,10 @@ function createRingNebula(mobile = false): {
     const depthProgress = Math.max(0, (RING_RADIUS - radius)) / RING_RADIUS; // 0 (at lip) → 1 (at center)
     const yOffset = -depthProgress * DEPTH_DROP + gauss2 * RING_HEIGHT * (0.3 + depthProgress * 0.7);
 
-    // Cartesian from polar — on mobile, rotate 90° so ring stands vertical
-    if (mobile) {
-      // Vertical column: ring opens in X-Y, depth in Z
-      positions[i * 3]     = Math.cos(angle) * radius;
-      positions[i * 3 + 1] = Math.sin(angle) * radius;
-      positions[i * 3 + 2] = yOffset;
-    } else {
-      // Horizontal ring: ring opens in X-Z, depth in Y
-      positions[i * 3]     = Math.cos(angle) * radius;
-      positions[i * 3 + 1] = yOffset;
-      positions[i * 3 + 2] = Math.sin(angle) * radius;
-    }
+    // Ring faces camera: opens in X-Y, depth tunnels into Z
+    positions[i * 3]     = Math.cos(angle) * radius;
+    positions[i * 3 + 1] = Math.sin(angle) * radius;
+    positions[i * 3 + 2] = yOffset;
 
     // Color: deeper particles are dimmer, with shifted hue
     const col = paletteColors[Math.floor(Math.random() * paletteColors.length)];
@@ -96,7 +89,7 @@ function createRingNebula(mobile = false): {
     colors[i * 3 + 2] = col.b * depthDim;
 
     // Size: lip particles larger, deeper particles smaller
-    const sizeBase = 0.15 + Math.random() * 0.25;
+    const sizeBase = 0.28 + Math.random() * 0.40;
     const sizeDepth = (yOffset < 0) ? Math.max(0.4, 1.0 + yOffset / DEPTH_DROP * 0.6) : 1.0;
     sizes[i] = sizeBase * sizeDepth;
 
@@ -117,7 +110,7 @@ function createRingNebula(mobile = false): {
       void main() {
         vColor = color;
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        gl_PointSize = size * (200.0 / -mvPosition.z);
+        gl_PointSize = size * (540.0 / -mvPosition.z);
         gl_Position = projectionMatrix * mvPosition;
       }
     `,
@@ -164,13 +157,13 @@ export function createBackgroundScene(container: HTMLElement): () => void {
   // Slightly elevated, looking slightly down into the ring
   const isMobile = width / height < 1;
 
-  // Camera position — mobile: centered, desktop: elevated looking down
+  // Camera faces the ring portal straight-on
   if (isMobile) {
-    camera.position.set(0, 0, 28);
+    camera.position.set(0, 0, 45);
     camera.lookAt(0, 0, 0);
   } else {
-    camera.position.set(0, 8, 28);
-    camera.lookAt(0, -1, 0);
+    camera.position.set(0, 0, 65);
+    camera.lookAt(0, 0, 0);
   }
 
   // --- Ring nebula ---
@@ -195,27 +188,20 @@ export function createBackgroundScene(container: HTMLElement): () => void {
   for (let i = 0; i < SHADOW_PARTICLE_COUNT; i++) {
     const angle = Math.random() * Math.PI * 2;
     const r = Math.random() * RING_RADIUS * 1.3;
+    // Shadow particles in XY ring, pushed back in Z
     shadowPos[i * 3]     = Math.cos(angle) * r;
-
-    if (isMobile) {
-      // Mobile: shadow extends behind (negative Z)
-      shadowPos[i * 3 + 1] = Math.sin(angle) * r;
-      shadowPos[i * 3 + 2] = -6 - Math.random() * 5;
-    } else {
-      // Desktop: shadow extends below (negative Y)
-      shadowPos[i * 3 + 1] = -6 - Math.random() * 5;
-      shadowPos[i * 3 + 2] = Math.sin(angle) * r;
-    }
+    shadowPos[i * 3 + 1] = Math.sin(angle) * r;
+    shadowPos[i * 3 + 2] = -30 - Math.random() * 12;
 
     const col = shadowPalette[Math.floor(Math.random() * shadowPalette.length)];
-    const dim = 0.3 + Math.random() * 0.7;
+    const dim = 0.2 + Math.random() * 0.8;
     shadowCol[i * 3]     = col.r * dim;
     shadowCol[i * 3 + 1] = col.g * dim;
     shadowCol[i * 3 + 2] = col.b * dim;
 
     // Smaller particles toward center, larger at edges
     const normalizedR = r / (RING_RADIUS * 1.3);
-    shadowSizes[i] = 0.05 + normalizedR * 0.2 + Math.random() * 0.15;
+    shadowSizes[i] = 0.08 + normalizedR * 0.32 + Math.random() * 0.22;
   }
 
   shadowGeo.setAttribute("position", new THREE.BufferAttribute(shadowPos, 3));
@@ -229,7 +215,7 @@ export function createBackgroundScene(container: HTMLElement): () => void {
       void main() {
         vColor = color;
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        gl_PointSize = size * (180.0 / -mvPosition.z);
+        gl_PointSize = size * (470.0 / -mvPosition.z);
         gl_Position = projectionMatrix * mvPosition;
       }
     `,
@@ -270,11 +256,11 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     lastTime = now;
     const t = now * 0.001;
 
-    // Slow rotation
-    points.rotation.y += 0.0003;
-    points.rotation.x = Math.sin(t * 0.015) * 0.015;
+    // Slow spin around Z (portal rotates like a wheel)
+    points.rotation.z += 0.0004;
+    points.rotation.x = Math.sin(t * 0.015) * 0.01;
 
-    // Breathing — particles oscillate slightly
+    // Breathing — particles oscillate in XY, drift in Z
     const posArr = geometry.attributes.position.array as Float32Array;
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       const i3 = i * 3;
@@ -282,16 +268,16 @@ export function createBackgroundScene(container: HTMLElement): () => void {
       const baseYVal = baseY[i];
       const phase = phases[i];
 
-      // Subtle radial breathing
-      const breathe = Math.sin(t * 0.25 + phase) * 0.12;
+      // Subtle radial breathing in XY plane
+      const breathe = Math.sin(t * 0.25 + phase) * 0.15;
       const currentR = baseR + breathe;
 
-      const currentAngle = Math.atan2(posArr[i3 + 2], posArr[i3]) + 0.00015;
+      const currentAngle = Math.atan2(posArr[i3 + 1], posArr[i3]) + 0.0002;
       posArr[i3]     = Math.cos(currentAngle) * currentR;
-      posArr[i3 + 2] = Math.sin(currentAngle) * currentR;
+      posArr[i3 + 1] = Math.sin(currentAngle) * currentR;
 
-      // Subtle vertical drift
-      posArr[i3 + 1] = baseYVal + Math.sin(t * 0.35 + phase * 1.5) * 0.003;
+      // Subtle depth drift in Z
+      posArr[i3 + 2] = baseYVal + Math.sin(t * 0.35 + phase * 1.5) * 0.06;
     }
     geometry.attributes.position.needsUpdate = true;
 
