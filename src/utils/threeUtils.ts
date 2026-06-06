@@ -259,41 +259,16 @@ function createParticleSystem(): {
         uEdgeCount: { value: edgeCount },
       },
       vertexShader: `
-        varying float vProgress;
         void main() {
-          vProgress = progress;
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
       fragmentShader: `
-        varying float vProgress;
         uniform float uTime;
-        uniform float uEdgeCount;
-        const vec3 gold  = vec3(0.788, 0.659, 0.298);
-        const vec3 cyan  = vec3(0.000, 0.831, 1.000);
-        const vec3 green = vec3(0.000, 1.000, 0.255);
-
         void main() {
-          // Sweep draws edges one by one: 0 → uEdgeCount
-          float sweep = mod(uTime * 0.50, uEdgeCount + 1.2);
-          float tail  = 0.30;
-          float visible = 1.0 - smoothstep(sweep - tail, sweep, vProgress);
-
-          // Cycling gradient: gold → cyan → green → gold
-          float phase = fract(uTime * 0.06 + vProgress * 1.2);
-          vec3 col;
-          if (phase < 0.33) {
-            col = mix(gold, cyan, phase / 0.33);
-          } else if (phase < 0.66) {
-            col = mix(cyan, green, (phase - 0.33) / 0.33);
-          } else {
-            col = mix(green, gold, (phase - 0.66) / 0.34);
-          }
-
-          // DEBUG: always render, ignore sweep for now
-          float alpha = 0.7;
-          gl_FragColor = vec4(col, alpha);
+          // MINIMAL TEST: solid orange, should be impossible to miss
+          gl_FragColor = vec4(1.0, 0.5, 0.0, 0.8);
         }
       `,
       depthWrite: false,
