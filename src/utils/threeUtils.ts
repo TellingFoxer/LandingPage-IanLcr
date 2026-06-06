@@ -19,7 +19,8 @@ const PALETTE = {
 // The ring edge is the "lip", the center dips down.
 // ---------------------------------------------------------------------------
 
-const PARTICLE_COUNT = 1000;
+const PARTICLE_COUNT = 2000;
+const SHADOW_PARTICLE_COUNT = 500;
 const RING_RADIUS = 12;    // radius of the ring lip
 const RING_SPREAD = 3.5;   // gaussian spread outward from ring center
 const RING_HEIGHT = 1.8;   // vertical spread at the lip
@@ -170,37 +171,73 @@ export function createBackgroundScene(container: HTMLElement): () => void {
   const { points, geometry, phases, baseRadii, baseY } = createRingNebula();
   scene.add(points);
 
-  // --- Ambient glow plane (subtle) ---
-  const glowGeometry = new THREE.PlaneGeometry(50, 50);
-  const glowMaterial = new THREE.ShaderMaterial({
+  // --- Shadow particles (below the halo) ---
+  const shadowGeo = new THREE.BufferGeometry();
+  const shadowPos = new Float32Array(SHADOW_PARTICLE_COUNT * 3);
+  const shadowCol = new Float32Array(SHADOW_PARTICLE_COUNT * 3);
+  const shadowSizes = new Float32Array(SHADOW_PARTICLE_COUNT);
+
+  const shadowPalette = [
+    new THREE.Color("#ffffff"),
+    new THREE.Color("#e0e0e0"),
+    new THREE.Color("#c0c0c0"),
+    new THREE.Color("#a0a0a0"),
+    new THREE.Color("#808080"),
+    new THREE.Color("#d8d8d8"),
+  ];
+
+  for (let i = 0; i < SHADOW_PARTICLE_COUNT; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = Math.random() * RING_RADIUS * 1.3;
+    shadowPos[i * 3]     = Math.cos(angle) * r;
+    shadowPos[i * 3 + 1] = -6 - Math.random() * 5; // deep below
+    shadowPos[i * 3 + 2] = Math.sin(angle) * r;
+
+    const col = shadowPalette[Math.floor(Math.random() * shadowPalette.length)];
+    const dim = 0.3 + Math.random() * 0.7;
+    shadowCol[i * 3]     = col.r * dim;
+    shadowCol[i * 3 + 1] = col.g * dim;
+    shadowCol[i * 3 + 2] = col.b * dim;
+
+    // Smaller particles toward center, larger at edges
+    const normalizedR = r / (RING_RADIUS * 1.3);
+    shadowSizes[i] = 0.05 + normalizedR * 0.2 + Math.random() * 0.15;
+  }
+
+  shadowGeo.setAttribute("position", new THREE.BufferAttribute(shadowPos, 3));
+  shadowGeo.setAttribute("color", new THREE.BufferAttribute(shadowCol, 3));
+  shadowGeo.setAttribute("size", new THREE.BufferAttribute(shadowSizes, 1));
+
+  const shadowMat = new THREE.ShaderMaterial({
     vertexShader: `
-      varying vec2 vUv;
+      attribute float size;
+      varying vec3 vColor;
       void main() {
-        vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        vColor = color;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = size * (180.0 / -mvPosition.z);
+        gl_Position = projectionMatrix * mvPosition;
       }
     `,
     fragmentShader: `
-      varying vec2 vUv;
+      varying vec3 vColor;
       void main() {
-        vec2 center = vUv - 0.5;
-        float d = length(center);
-        float ringDist = abs(d - 0.28);
-        float ringGlow = exp(-ringDist * ringDist * 200.0) * 0.12;
-        float centerGlow = exp(-d * 5.0) * 0.03;
-        float glow = ringGlow + centerGlow;
-        vec3 color = mix(vec3(0.9, 0.9, 0.95), vec3(1.0, 1.0, 1.0), glow);
-        gl_FragColor = vec4(color, glow * 0.4);
+        float d = length(gl_PointCoord - 0.5);
+        if (d > 0.5) discard;
+        float alpha = 1.0 - smoothstep(0.0, 0.5, d);
+        alpha = pow(alpha, 2.0);
+        gl_FragColor = vec4(vColor, alpha);
       }
     `,
+    vertexColors: true,
     depthWrite: false,
+    depthTest: false,
     transparent: true,
     blending: THREE.AdditiveBlending,
-    side: THREE.DoubleSide,
   });
-  const glowPlane = new THREE.Mesh(glowGeometry, glowMaterial);
-  glowPlane.position.set(0, -2, -8);
-  scene.add(glowPlane);
+
+  const shadowPoints = new THREE.Points(shadowGeo, shadowMat);
+  scene.add(shadowPoints);
 
   // --- Animation loop ---
   let animId: number;
@@ -271,8 +308,8 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     renderer.dispose();
     geometry.dispose();
     points.material.dispose();
-    glowGeometry.dispose();
-    glowMaterial.dispose();
+    shadowGeo.dispose();
+    shadowMat.dispose();
     if (container.contains(renderer.domElement)) {
       container.removeChild(renderer.domElement);
     }
