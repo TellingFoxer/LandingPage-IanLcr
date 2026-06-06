@@ -5,3 +5,29 @@
 ---
 
 <div id="bg-container" class="fixed inset-0 z-0 pointer-events-none"></div>
+
+<script>
+  const container = document.getElementById("bg-container");
+  if (!container) {
+    console.warn("Background: #bg-container not found");
+  } else {
+    let cleanup: (() => void) | null = null;
+
+    async function mount() {
+      try {
+        const { createBackgroundScene } = await import("../utils/threeUtils");
+        cleanup = createBackgroundScene(container!);
+      } catch (err) {
+        console.warn("Background: failed to load Three.js scene", err);
+      }
+    }
+
+    function unmount() {
+      cleanup?.();
+      cleanup = null;
+    }
+
+    mount();
+    document.addEventListener("astro:before-swap", unmount, { once: true });
+  }
+</script>
