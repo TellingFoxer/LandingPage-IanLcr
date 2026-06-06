@@ -287,9 +287,9 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     points.rotation.z += 0.0004;
     points.rotation.x = Math.sin(t * 0.015) * 0.01;
 
-    // Breathing — particles oscillate in XY, drift in Z
+    // Breathing — ring particles oscillate in XY, bg stars just rotate
     const posArr = geometry.attributes.position.array as Float32Array;
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
+    for (let i = BACKGROUND_STAR_COUNT; i < PARTICLE_COUNT; i++) {
       const i3 = i * 3;
       const baseR = baseRadii[i];
       const baseYVal = baseY[i];
