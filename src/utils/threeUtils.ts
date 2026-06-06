@@ -255,7 +255,7 @@ function createParticleSystem(): {
 
     const lineMat = new THREE.ShaderMaterial({
       uniforms: {
-        uTime: { value: 3.0 },
+        uTime: { value: 1.0 },
         uEdgeCount: { value: edgeCount },
       },
       vertexShader: `
@@ -275,9 +275,9 @@ function createParticleSystem(): {
         const vec3 green = vec3(0.000, 1.000, 0.255);
 
         void main() {
-          // Sweep draws edges one by one: 0 → uEdgeCount
-          float sweep = mod(uTime * 0.50, uEdgeCount + 1.2);
-          float tail  = 0.30;
+          // Sweep draws edges one by one: 0 → uEdgeCount, resets fast
+          float sweep = mod(uTime * 2.0, uEdgeCount + 0.6);
+          float tail  = 0.25;
           float visible = 1.0 - smoothstep(sweep - tail, sweep, vProgress);
 
           // Cycling gradient: gold → cyan → green → gold
