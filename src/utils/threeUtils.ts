@@ -78,15 +78,15 @@ function createRingNebula(mobile = false): {
     positions[i3 + 1] = Math.sin(angle) * r;
     positions[i3 + 2] = z;
 
-    // Varied brightness: 20%–100%
-    const brightness = 0.20 + Math.random() * 0.80;
+    // Varied brightness: 50%–100%
+    const brightness = 0.50 + Math.random() * 0.50;
     const col = starPalette[Math.floor(Math.random() * starPalette.length)];
     colors[i3]     = col.r * brightness;
     colors[i3 + 1] = col.g * brightness;
     colors[i3 + 2] = col.b * brightness;
 
     // Small, crisp points
-    sizes[i] = 0.10 + Math.random() * 0.18;
+    sizes[i] = 0.15 + Math.random() * 0.20;
 
     phases[i] = Math.random() * Math.PI * 2;
     baseRadii[i] = r;
@@ -283,21 +283,19 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     lastTime = now;
     const t = now * 0.001;
 
-    // Slow spin around Z (portal rotates like a wheel)
-    points.rotation.z += 0.0004;
+    // Slow spin — all particles rotate together in XY (no transform rotation)
     points.rotation.x = Math.sin(t * 0.015) * 0.01;
+    const ROTATE_SPEED = 0.0006; // unified rotation per frame
 
-    // Rotate all particles: bg stars + ring together in XY
     const posArr = geometry.attributes.position.array as Float32Array;
 
-    // Background stars: smooth rotation, no breathing, no Z drift
+    // Background stars: smooth rotation, no breathing, Z fixed
     for (let i = 0; i < BACKGROUND_STAR_COUNT; i++) {
       const i3 = i * 3;
       const baseR = baseRadii[i];
-      const currentAngle = Math.atan2(posArr[i3 + 1], posArr[i3]) + 0.0002;
+      const currentAngle = Math.atan2(posArr[i3 + 1], posArr[i3]) + ROTATE_SPEED;
       posArr[i3]     = Math.cos(currentAngle) * baseR;
       posArr[i3 + 1] = Math.sin(currentAngle) * baseR;
-      // Z stays fixed — stars never enter the tunnel
     }
 
     // Ring particles: breathing + rotation + depth drift
@@ -310,7 +308,7 @@ export function createBackgroundScene(container: HTMLElement): () => void {
       const breathe = Math.sin(t * 0.25 + phase) * 0.15;
       const currentR = baseR + breathe;
 
-      const currentAngle = Math.atan2(posArr[i3 + 1], posArr[i3]) + 0.0002;
+      const currentAngle = Math.atan2(posArr[i3 + 1], posArr[i3]) + ROTATE_SPEED;
       posArr[i3]     = Math.cos(currentAngle) * currentR;
       posArr[i3 + 1] = Math.sin(currentAngle) * currentR;
 
