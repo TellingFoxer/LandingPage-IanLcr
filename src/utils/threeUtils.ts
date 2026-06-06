@@ -26,7 +26,7 @@ const SHADOW_PARTICLE_COUNT = 2500;
 const RING_RADIUS = 44;
 const RING_SPREAD = 6.0;
 const RING_HEIGHT = 10;
-const DEPTH_DROP = 45;
+const DEPTH_DROP = 70;
 
 function createRingNebula(mobile = false): {
   points: THREE.Points;
@@ -180,7 +180,7 @@ export function createBackgroundScene(container: HTMLElement): () => void {
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 200);
   // Slightly elevated, looking slightly down into the ring
   const isMobile = width / height < 1;
 
@@ -218,7 +218,7 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     // Shadow particles in XY ring, pushed back in Z
     shadowPos[i * 3]     = Math.cos(angle) * r;
     shadowPos[i * 3 + 1] = Math.sin(angle) * r;
-    shadowPos[i * 3 + 2] = -30 - Math.random() * 12;
+    shadowPos[i * 3 + 2] = -50 - Math.random() * 18;
 
     const col = shadowPalette[Math.floor(Math.random() * shadowPalette.length)];
     const dim = 0.2 + Math.random() * 0.8;
