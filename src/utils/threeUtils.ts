@@ -255,7 +255,7 @@ function createParticleSystem(): {
 
     const lineMat = new THREE.ShaderMaterial({
       uniforms: {
-        uTime: { value: 0 },
+        uTime: { value: 3.0 },
         uEdgeCount: { value: edgeCount },
       },
       vertexShader: `
@@ -278,9 +278,7 @@ function createParticleSystem(): {
           // Sweep draws edges one by one: 0 → uEdgeCount, then resets
           float sweep = mod(uTime * 0.50, uEdgeCount + 1.2);
           float tail  = 0.30;
-          // visible = 1 when edge is before the sweep head, 0 when ahead
           float visible = 1.0 - smoothstep(sweep - tail, sweep, vProgress);
-          if (visible < 0.02) discard;
 
           // Cycling gradient: gold → cyan → green → gold
           float phase = fract(uTime * 0.06 + vProgress * 1.2);
@@ -293,7 +291,12 @@ function createParticleSystem(): {
             col = mix(green, gold, (phase - 0.66) / 0.34);
           }
 
-          float alpha = visible * 0.45;
+          // Boost alpha and add glow falloff at segment edges
+          float alpha = visible * 0.8;
+          // Softer edge at segment boundaries
+          float edgeFade = 1.0 - abs(vProgress - floor(vProgress + 0.5)) * 1.5;
+          alpha *= max(0.5, edgeFade);
+          if (alpha < 0.03) discard;
           gl_FragColor = vec4(col, alpha);
         }
       `,
