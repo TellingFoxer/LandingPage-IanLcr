@@ -1,0 +1,125 @@
+---
+// CursorGlow.astro
+// Radial halo that follows the cursor with smooth lerp.
+// Intensifies over interactive elements. Removed on touch devices.
+// Uses transform for GPU compositing (no layout thrashing).
+---
+
+<div id="cursor-glow" class="pointer-events-none fixed z-50" style="opacity: 0;"></div>
+
+<style>
+  #cursor-glow {
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle at center,
+      rgba(201, 168, 76, 0.08) 0%,
+      rgba(0, 212, 255, 0.04) 30%,
+      transparent 70%
+    );
+    transition: opacity 0.3s ease;
+    will-change: transform;
+  }
+</style>
+
+<script>
+  {
+    const glow = document.getElementById("cursor-glow");
+    if (!glow) throw new Error("CursorGlow: element not found");
+
+    // Remove on touch devices
+    if ("ontouchstart" in window || navigator.maxTouchPoints > 0) {
+      glow.remove();
+    } else {
+      let targetX = -999;
+      let targetY = -999;
+      let currentX = -999;
+      let currentY = -999;
+      let rafId: number | null = null;
+      let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      const IDLE_TIMEOUT = 5000; // cancel RAF after 5s without mouse movement
+
+      function startLoop() {
+        if (rafId !== null) return; // already running
+        function update() {
+          const ease = 0.08;
+          currentX += (targetX - currentX) * ease;
+          currentY += (targetY - currentY) * ease;
+
+          // Only update if position changed enough
+          if (Math.abs(targetX - currentX) > 0.5 || Math.abs(targetY - currentY) > 0.5) {
+            glow.style.transform = `translate3d(${currentX - 140}px, ${currentY - 140}px, 0)`;
+          }
+
+          rafId = requestAnimationFrame(update);
+        }
+        rafId = requestAnimationFrame(update);
+      }
+
+      function stopLoop() {
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      }
+
+      function resetIdleTimer() {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          stopLoop();
+          glow.style.opacity = "0";
+        }, IDLE_TIMEOUT);
+      }
+
+      document.addEventListener("mousemove", (e) => {
+        targetX = e.clientX;
+        targetY = e.clientY;
+        glow.style.opacity = "0.6";
+        startLoop();
+        resetIdleTimer();
+      });
+
+      document.addEventListener("mouseleave", () => {
+        glow.style.opacity = "0";
+        stopLoop();
+        if (idleTimer) clearTimeout(idleTimer);
+      });
+
+      // Intensify over interactive elements
+      const intensifySelector = "a, button, .glass, .hover-card, [role='button']";
+      document.addEventListener("mouseover", (e) => {
+        const target = (e.target as HTMLElement).closest(intensifySelector);
+        if (target) {
+          glow.style.opacity = "0.9";
+          glow.style.background =
+            "radial-gradient(circle at center, rgba(201,168,76,0.14) 0%, rgba(0,212,255,0.06) 30%, transparent 70%)";
+        }
+      });
+
+      document.addEventListener("mouseout", (e) => {
+        const target = (e.target as HTMLElement).closest(intensifySelector);
+        if (target) {
+          glow.style.opacity = "0.6";
+          glow.style.background =
+            "radial-gradient(circle at center, rgba(201,168,76,0.08) 0%, rgba(0,212,255,0.04) 30%, transparent 70%)";
+        }
+      });
+
+      // Start the loop initially
+      startLoop();
+      resetIdleTimer();
+
+      // Cleanup
+      document.addEventListener(
+        "astro:before-swap",
+        () => {
+          stopLoop();
+          if (idleTimer) clearTimeout(idleTimer);
+          glow.remove();
+        },
+        { once: true }
+      );
+    }
+  }
+</script>

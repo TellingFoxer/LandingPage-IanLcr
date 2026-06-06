@@ -1,0 +1,139 @@
+---
+// NavBar.astro
+// Desktop: vertical icon bar fixed left.
+// Mobile: bottom glass pill (hidden on md+).
+// Scroll spy highlights active section.
+---
+
+<nav
+  id="navbar"
+  class="reveal fixed left-0 top-1/2 z-40 -translate-y-1/2 hidden md:flex flex-col gap-6 py-6 pl-5 pr-3"
+  aria-label="Main navigation"
+>
+  <!-- Desktop icons -->
+  <a href="#hero" data-section="hero" class="nav-dot group" aria-label="Inicio">
+    <span class="block w-3 h-3 rounded-full border border-gold/40 transition-all duration-500 group-hover:bg-gold group-hover:shadow-[0_0_12px_rgba(201,168,76,0.6)]"></span>
+  </a>
+  <a href="#skills" data-section="skills" class="nav-dot group" aria-label="Skills">
+    <span class="block w-3 h-3 rounded-full border border-gold/40 transition-all duration-500 group-hover:bg-gold group-hover:shadow-[0_0_12px_rgba(201,168,76,0.6)]"></span>
+  </a>
+  <a href="#projects" data-section="projects" class="nav-dot group" aria-label="Proyectos">
+    <span class="block w-3 h-3 rounded-full border border-gold/40 transition-all duration-500 group-hover:bg-gold group-hover:shadow-[0_0_12px_rgba(201,168,76,0.6)]"></span>
+  </a>
+  <a href="#contact" data-section="contact" class="nav-dot group" aria-label="Contacto">
+    <span class="block w-3 h-3 rounded-full border border-gold/40 transition-all duration-500 group-hover:bg-gold group-hover:shadow-[0_0_12px_rgba(201,168,76,0.6)]"></span>
+  </a>
+</nav>
+
+<!-- Mobile bottom bar -->
+<nav
+  id="navbar-mobile"
+  class="reveal fixed bottom-4 left-1/2 z-40 -translate-x-1/2 md:hidden glass-strong rounded-full px-6 py-3 flex gap-6"
+  aria-label="Mobile navigation"
+>
+  <a href="#hero" data-section="hero" class="mobile-dot group" aria-label="Inicio">
+    <span class="block w-2.5 h-2.5 rounded-full border border-gold/40 transition-all duration-500 group-hover:bg-gold"></span>
+  </a>
+  <a href="#skills" data-section="skills" class="mobile-dot group" aria-label="Skills">
+    <span class="block w-2.5 h-2.5 rounded-full border border-gold/40 transition-all duration-500 group-hover:bg-gold"></span>
+  </a>
+  <a href="#projects" data-section="projects" class="mobile-dot group" aria-label="Proyectos">
+    <span class="block w-2.5 h-2.5 rounded-full border border-gold/40 transition-all duration-500 group-hover:bg-gold"></span>
+  </a>
+  <a href="#contact" data-section="contact" class="mobile-dot group" aria-label="Contacto">
+    <span class="block w-2.5 h-2.5 rounded-full border border-gold/40 transition-all duration-500 group-hover:bg-gold"></span>
+  </a>
+</nav>
+
+<script>
+  // Scroll spy
+  {
+    const sections = ["hero", "skills", "projects", "contact"];
+    const dots = document.querySelectorAll<HTMLAnchorElement>(".nav-dot");
+    const mobileDots = document.querySelectorAll<HTMLAnchorElement>(".mobile-dot");
+
+    function updateActive() {
+      let current = sections[0];
+
+      for (const id of sections) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        // Section is "active" when its top is near the top of the viewport
+        if (rect.top <= window.innerHeight * 0.4) {
+          current = id;
+        }
+      }
+
+      // Update desktop dots
+      dots.forEach((dot) => {
+        const section = dot.dataset.section;
+        const span = dot.querySelector("span")!;
+        if (section === current) {
+          span.classList.add("bg-gold", "shadow-[0_0_12px_rgba(201,168,76,0.6)]");
+          span.classList.remove("border-gold/40");
+          span.classList.add("border-gold");
+        } else {
+          span.classList.remove("bg-gold", "shadow-[0_0_12px_rgba(201,168,76,0.6)]");
+          span.classList.add("border-gold/40");
+          span.classList.remove("border-gold");
+        }
+      });
+
+      // Update mobile dots
+      mobileDots.forEach((dot) => {
+        const section = dot.dataset.section;
+        const span = dot.querySelector("span")!;
+        if (section === current) {
+          span.classList.add("bg-gold");
+        } else {
+          span.classList.remove("bg-gold");
+        }
+      });
+    }
+
+    // Smooth scroll on click
+    function smoothClick(e: Event) {
+      const anchor = (e.currentTarget as HTMLAnchorElement);
+      const id = anchor.getAttribute("href")?.slice(1);
+      if (!id) return;
+      e.preventDefault();
+      const target = document.getElementById(id);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+
+    dots.forEach((d) => d.addEventListener("click", smoothClick));
+    mobileDots.forEach((d) => d.addEventListener("click", smoothClick));
+
+    let scrollTicking = false;
+    function onScroll() {
+      if (!scrollTicking) {
+        requestAnimationFrame(() => {
+          updateActive();
+          scrollTicking = false;
+        });
+        scrollTicking = true;
+      }
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    updateActive();
+
+    document.addEventListener(
+      "astro:before-swap",
+      () => {
+        window.removeEventListener("scroll", onScroll);
+        dots.forEach((d) => d.removeEventListener("click", smoothClick));
+        mobileDots.forEach((d) => d.removeEventListener("click", smoothClick));
+      },
+      { once: true }
+    );
+  }
+</script>
+
+<style>
+  .reveal {
+    opacity: 0;
+  }
+</style>

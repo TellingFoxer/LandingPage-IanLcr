@@ -1,0 +1,105 @@
+---
+// SkillTag.astro
+// Flip card: front = icon + name, back = description.
+// Click toggles flip. Touch-friendly.
+import { skillIcons, fallbackIcon } from "../data/skillIcons";
+
+export interface Props {
+  name: string;
+  category: "language" | "tool" | "area";
+  description: string;
+}
+
+const { name, category, description } = Astro.props;
+
+const icon = skillIcons[name] || fallbackIcon;
+
+const borderColor: Record<string, string> = {
+  language: "border-gold/30 hover:border-gold/50",
+  tool: "border-aero-cyan/30 hover:border-aero-cyan/50",
+  area: "border-neon-green/30 hover:border-neon-green/50",
+};
+
+const glowColor: Record<string, string> = {
+  language: "group-hover:shadow-[0_0_20px_rgba(201,168,76,0.15)]",
+  tool: "group-hover:shadow-[0_0_20px_rgba(0,212,255,0.12)]",
+  area: "group-hover:shadow-[0_0_20px_rgba(0,255,65,0.1)]",
+};
+
+const textAccent: Record<string, string> = {
+  language: "text-gold",
+  tool: "text-aero-cyan",
+  area: "text-neon-green",
+};
+
+const bgAccent: Record<string, string> = {
+  language: "bg-gold/5",
+  tool: "bg-aero-cyan/5",
+  area: "bg-neon-green/5",
+};
+
+const backBg: Record<string, string> = {
+  language: "bg-[#0f0d08]",
+  tool: "bg-[#080f12]",
+  area: "bg-[#080f0a]",
+};
+---
+
+<div
+  class="flip-card group cursor-pointer"
+  data-skill-name={name}
+  data-skill-category={category}
+>
+  <div class="flip-card-inner relative w-full">
+    <!-- Front -->
+    <div
+      class="flip-card-face flip-card-front glass rounded-xl p-4 flex flex-col items-center justify-center gap-2 min-h-[110px] transition-all duration-300 border"
+      class:list={[borderColor[category], glowColor[category]]}
+    >
+      <div class="w-9 h-9 flex items-center justify-center" set:html={icon.svg} />
+      <span class="text-xs font-medium text-parchment/90 text-center leading-tight">
+        {name}
+      </span>
+    </div>
+
+    <!-- Back -->
+    <div
+      class="flip-card-face flip-card-back rounded-xl p-4 flex flex-col items-center justify-center min-h-[110px] border border-parchment/10 transition-all duration-300"
+      class:list={[backBg[category]]}
+    >
+      <p class="text-[11px] text-parchment/80 leading-relaxed text-center">
+        {description}
+      </p>
+      <span
+        class="mt-2 text-[10px] uppercase tracking-widest font-medium opacity-60"
+        class:list={[textAccent[category]]}
+      >{name}</span>
+    </div>
+  </div>
+</div>
+
+<style>
+  .flip-card {
+    perspective: 800px;
+  }
+  .flip-card-inner {
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+  }
+  .flip-card-face {
+    backface-visibility: hidden;
+  }
+  .flip-card-back {
+    position: absolute;
+    inset: 0;
+    transform: rotateY(180deg);
+  }
+  .flip-card.is-flipped .flip-card-inner {
+    transform: rotateY(180deg);
+  }
+
+  /* Tactile press */
+  .flip-card-front:active {
+    transform: scale(0.96);
+  }
+</style>

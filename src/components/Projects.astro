@@ -1,0 +1,145 @@
+---
+// Projects.astro
+// Projects section with tabs to filter personal/academic and click-to-expand cards.
+import ProjectCard from "./ProjectCard.astro";
+import { projects } from "../data/projects";
+
+const personal = projects.filter((p) => p.category === "personal");
+const academic = projects.filter((p) => p.category === "academic");
+---
+
+<section id="projects" class="relative z-10 py-24 px-6 max-w-5xl mx-auto">
+  <h2 class="reveal font-serif text-4xl sm:text-5xl font-bold text-gold glow-text text-center mb-12">
+    Proyectos
+  </h2>
+
+  <!-- Tabs -->
+  <div class="reveal flex justify-center gap-2 mb-12">
+    <button
+      id="tab-personal"
+      class="tab-btn px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 border border-gold/30 bg-gold/10 text-gold"
+      data-tab="personal"
+    >
+      Personales
+    </button>
+    <button
+      id="tab-academic"
+      class="tab-btn px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 border border-parchment/10 text-parchment/50 hover:text-parchment/80"
+      data-tab="academic"
+    >
+      Academicos
+    </button>
+  </div>
+
+  <!-- Personal grid (visible by default) -->
+  <div id="grid-personal" class="project-grid grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+    {personal.map((proj) => (
+      <ProjectCard
+        title={proj.title}
+        description={proj.description}
+        tags={proj.tags}
+        link={proj.link}
+        status={proj.status}
+        category={proj.category}
+      />
+    ))}
+  </div>
+
+  <!-- Academic grid (hidden by default) -->
+  <div id="grid-academic" class="project-grid grid grid-cols-1 lg:grid-cols-2 gap-6 hidden items-start">
+    {academic.map((proj) => (
+      <ProjectCard
+        title={proj.title}
+        description={proj.description}
+        tags={proj.tags}
+        link={proj.link}
+        status={proj.status}
+        category={proj.category}
+      />
+    ))}
+  </div>
+</section>
+
+<script>
+  // Tab switching
+  {
+    const tabPersonal = document.getElementById("tab-personal");
+    const tabAcademic = document.getElementById("tab-academic");
+    const gridPersonal = document.getElementById("grid-personal");
+    const gridAcademic = document.getElementById("grid-academic");
+
+    if (tabPersonal && tabAcademic && gridPersonal && gridAcademic) {
+      function setActiveTab(tab: "personal" | "academic") {
+        const isPersonal = tab === "personal";
+
+        tabPersonal!.className = isPersonal
+          ? "tab-btn px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 border border-gold/30 bg-gold/10 text-gold"
+          : "tab-btn px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 border border-parchment/10 text-parchment/50 hover:text-parchment/80";
+
+        tabAcademic!.className = !isPersonal
+          ? "tab-btn px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 border border-gold/30 bg-gold/10 text-gold"
+          : "tab-btn px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 border border-parchment/10 text-parchment/50 hover:text-parchment/80";
+
+        gridPersonal!.classList.toggle("hidden", !isPersonal);
+        gridAcademic!.classList.toggle("hidden", isPersonal);
+      }
+
+      tabPersonal.addEventListener("click", () => setActiveTab("personal"));
+      tabAcademic.addEventListener("click", () => setActiveTab("academic"));
+    }
+  }
+
+  // Project card expand/collapse
+  {
+    function initProjectExpand() {
+      const grids = document.querySelectorAll<HTMLElement>(".project-grid");
+
+      grids.forEach((grid) => {
+        grid.addEventListener("click", (e) => {
+          const card = (e.target as HTMLElement).closest<HTMLElement>("[data-project-card]");
+          if (!card) return;
+
+          // Don't toggle if clicking a link or the expand toggle already handled it
+          const target = e.target as HTMLElement;
+          if (target.closest("a") || target.closest(".card-expand-toggle")) return;
+
+          toggleCard(card);
+        });
+      });
+
+      // Also handle the explicit expand button clicks
+      document.addEventListener("click", (e) => {
+        const toggle = (e.target as HTMLElement).closest<HTMLElement>(".card-expand-toggle");
+        if (!toggle) return;
+        e.stopPropagation();
+        const card = toggle.closest<HTMLElement>("[data-project-card]");
+        if (card) toggleCard(card);
+      });
+    }
+
+    function toggleCard(card: HTMLElement) {
+      const body = card.querySelector<HTMLElement>(".card-body");
+      const content = body?.querySelector<HTMLElement>("div");
+      const label = card.querySelector<HTMLElement>(".card-expand-label");
+      if (!body || !content) return;
+
+      const isExpanded = card.classList.toggle("is-expanded");
+
+      if (isExpanded) {
+        const fullHeight = content.scrollHeight;
+        body.style.setProperty("--collapsed-rows", "1fr");
+        if (label) label.textContent = "Contraer";
+      } else {
+        body.style.setProperty("--collapsed-rows", "0fr");
+        if (label) label.textContent = "Expandir";
+      }
+    }
+
+    // Init on load for any dynamically added cards
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initProjectExpand);
+    } else {
+      initProjectExpand();
+    }
+  }
+</script>

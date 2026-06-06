@@ -1,0 +1,140 @@
+---
+// ProjectCard.astro
+// Glass card for a single project: click-to-expand description, hover glow, status badge.
+export interface Props {
+  title: string;
+  description: string;
+  tags: string[];
+  link?: string;
+  status: "active" | "coming" | "wip";
+  category: "personal" | "academic";
+}
+
+const { title, description, tags, link, status, category } = Astro.props;
+
+const statusConfig = {
+  active: { dot: "bg-neon-green", label: "Activo", pulse: true },
+  wip: { dot: "bg-gold", label: "En desarrollo", pulse: false },
+  coming: { dot: "bg-gray-tech", label: "Proximamente", pulse: false },
+} as const;
+
+const config = statusConfig[status];
+---
+
+<style>
+  .hover-card {
+    --card-glow-opacity: 0;
+    position: relative;
+    cursor: pointer;
+  }
+  .hover-card::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: 0.75rem;
+    pointer-events: none;
+    z-index: -1;
+    opacity: var(--card-glow-opacity);
+    transition: opacity 0.35s ease;
+    box-shadow: 0 0 30px rgba(201, 168, 76, 0.15);
+  }
+  .card-body {
+    display: grid;
+    grid-template-rows: var(--collapsed-rows, 0fr);
+    transition: grid-template-rows 0.5s ease;
+  }
+  .card-body > div {
+    overflow: hidden;
+  }
+  .card-expand-icon {
+    transition: transform 0.4s ease;
+  }
+  .hover-card.is-expanded .card-expand-icon {
+    transform: rotate(180deg);
+  }
+</style>
+
+<article
+  class="hover-card reveal group relative glass rounded-xl p-6 transition-all duration-500 overflow-hidden"
+  data-project-card
+  style="--card-glow-opacity: 0; --collapsed-rows: 0fr;"
+>
+  <!-- Rotating border gradient on hover -->
+  <div
+    class="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+    style="padding: 1px; background: linear-gradient(135deg, #C9A84C, #00D4FF, #00FF41, #C9A84C); background-size: 300% 300%; mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); mask-composite: exclude; -webkit-mask-composite: xor; animation: border-rotate 4s linear infinite;"
+  >
+  </div>
+
+  <!-- Header: title + status -->
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="font-serif text-xl sm:text-2xl font-semibold text-gold leading-tight">
+      {title}
+    </h3>
+    <span class="flex items-center gap-1.5 text-xs text-gray-tech shrink-0 ml-3">
+      <span
+        class:list={["inline-block w-2 h-2 rounded-full", config.dot, { "animate-pulse": config.pulse }]}
+      ></span>
+      {config.label}
+    </span>
+  </div>
+
+  <!-- Expandable body (description + tags + link) -->
+  <div class="card-body">
+    <div>
+      <!-- Description -->
+      <p class="text-sm text-parchment/70 leading-relaxed mb-4">
+        {description}
+      </p>
+
+      <!-- Tags -->
+      <div class="flex flex-wrap gap-2 mb-4">
+        {tags.map((tag) => (
+          <span class="px-2.5 py-1 glass rounded-full text-xs text-parchment/60 border border-white/5">
+            {tag}
+          </span>
+        ))}
+      </div>
+
+      <!-- Footer: link + expand indicator -->
+      <div class="flex items-center justify-between">
+        <div>
+          {
+            link && (
+              <a
+                href={link}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1.5 text-sm text-aero-cyan/70 hover:text-aero-cyan transition-colors duration-300 z-10 relative"
+                onclick="event.stopPropagation()"
+              >
+                Ver repositorio
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" class="mt-px">
+                  <path d="M1 11L11 1M11 1H3.5M11 1V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </a>
+            )
+          }
+        </div>
+
+        <button class="card-expand-toggle flex items-center gap-1.5 text-xs text-gray-tech/60 hover:text-gold/70 transition-colors duration-300" aria-label="Expandir descripcion">
+          <span class="card-expand-label text-[10px] uppercase tracking-wider">Expandir</span>
+          <svg class="card-expand-icon w-3.5 h-3.5" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Coming soon overlay -->
+  {
+    status === "coming" && (
+      <div class="absolute inset-0 bg-night/60 backdrop-blur-[2px] rounded-xl flex items-center justify-center z-10 pointer-events-none">
+        <span class="font-serif text-lg text-parchment/50 italic tracking-wide">
+          En construccion
+        </span>
+      </div>
+    )
+  }
+</article>

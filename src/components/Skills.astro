@@ -1,0 +1,77 @@
+---
+// Skills.astro
+// Skills section with flip cards: click to flip, showing icon + description.
+import SkillTag from "./SkillTag.astro";
+import { skills, categoryMeta } from "../data/skills";
+
+const groups = Object.entries(categoryMeta).map(([key, meta]) => {
+  const categoryKey = key as "language" | "tool" | "area";
+  const items = skills.filter((s) => s.category === categoryKey);
+  return { key: categoryKey, label: meta.label, color: meta.color, items };
+});
+---
+
+<section id="skills" class="relative z-10 py-24 px-6 max-w-5xl mx-auto">
+  <h2 class="reveal font-serif text-4xl sm:text-5xl font-bold text-gold glow-text text-center mb-16">
+    Habilidades
+  </h2>
+
+  <div id="skills-grid">
+    {
+      groups.map((group) => (
+        <div class="reveal mb-14 last:mb-0">
+          <!-- Category header -->
+          <h3
+            class="text-xs uppercase tracking-[0.2em] mb-5 font-medium"
+            style={{ color: group.color }}
+          >
+            {group.label}
+          </h3>
+
+          <!-- Flip card grid -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {group.items.map((skill) => (
+              <SkillTag
+                name={skill.name}
+                category={skill.category}
+                description={skill.description}
+              />
+            ))}
+          </div>
+        </div>
+      ))
+    }
+  </div>
+</section>
+
+<script>
+  // Flip card toggle: click to flip, click again to unflip
+  const grid = document.getElementById("skills-grid");
+  if (grid) {
+    grid.addEventListener("click", (e) => {
+      const card = (e.target as HTMLElement).closest<HTMLElement>(".flip-card");
+      if (!card) return;
+      card.classList.toggle("is-flipped");
+    });
+
+    // Close on Escape
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        grid.querySelectorAll<HTMLElement>(".flip-card.is-flipped").forEach((c) => {
+          c.classList.remove("is-flipped");
+        });
+      }
+    });
+
+    // Close on scroll
+    let scrollTimer: number | undefined;
+    window.addEventListener("scroll", () => {
+      if (scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = window.setTimeout(() => {
+        grid.querySelectorAll<HTMLElement>(".flip-card.is-flipped").forEach((c) => {
+          c.classList.remove("is-flipped");
+        });
+      }, 300);
+    });
+  }
+</script>
