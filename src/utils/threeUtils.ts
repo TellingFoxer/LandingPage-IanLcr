@@ -19,13 +19,15 @@ const PALETTE = {
 // The ring edge is the "lip", the center dips down.
 // ---------------------------------------------------------------------------
 
-const PARTICLE_COUNT = 8000;
+const CORE_STAR_COUNT = 6000;
+const RING_PARTICLE_COUNT = 5000;
+const PARTICLE_COUNT = CORE_STAR_COUNT + RING_PARTICLE_COUNT;
 const SHADOW_PARTICLE_COUNT = 2500;
-// Desktop: ring faces camera (XY plane), depth into screen (Z)
 const RING_RADIUS = 44;
 const RING_SPREAD = 6.0;
 const RING_HEIGHT = 10;
 const DEPTH_DROP = 45;
+const CORE_RADIUS = RING_RADIUS * 0.35; // how wide the core starfield spreads
 
 function createRingNebula(mobile = false): {
   points: THREE.Points;
@@ -42,58 +44,83 @@ function createRingNebula(mobile = false): {
   const baseRadii = new Float32Array(PARTICLE_COUNT);
   const baseY = new Float32Array(PARTICLE_COUNT);
 
-  const paletteColors = [
-    new THREE.Color("#ffffff"),      // pure white chrome
-    new THREE.Color("#e8e8e8"),      // light chrome
-    new THREE.Color("#d0d0d0"),      // medium white
-    new THREE.Color("#b0b0b0"),      // silver
-    new THREE.Color("#888888"),      // mid gray
-    new THREE.Color("#f5f5f5"),      // near white
-    new THREE.Color("#c8c8c8"),      // soft silver
-    new THREE.Color("#a0a0a0"),      // darker silver
+  const starPalette = [
+    new THREE.Color("#ffffff"),
+    new THREE.Color("#fefefe"),
+    new THREE.Color("#f8f8ff"),
+    new THREE.Color("#fffaf0"),
+    new THREE.Color("#f0f8ff"),
+    new THREE.Color("#e6e6fa"),
+    new THREE.Color("#fff5ee"),
   ];
 
-  for (let i = 0; i < PARTICLE_COUNT; i++) {
-    // Gaussian random (Box-Muller)
+  const ringPalette = [
+    new THREE.Color("#ffffff"),
+    new THREE.Color("#e8e8e8"),
+    new THREE.Color("#d0d0d0"),
+    new THREE.Color("#b0b0b0"),
+    new THREE.Color("#888888"),
+    new THREE.Color("#f5f5f5"),
+    new THREE.Color("#c8c8c8"),
+    new THREE.Color("#a0a0a0"),
+  ];
+
+  // ---- Core stars: dense, bright, fill the tunnel center ----
+  for (let i = 0; i < CORE_STAR_COUNT; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    // Bias radius heavily toward center
+    const r = Math.pow(Math.random(), 1.8) * CORE_RADIUS;
+    // Spread stars throughout the tunnel depth
+    const z = -Math.random() * DEPTH_DROP * 1.1;
+
+    const i3 = i * 3;
+    positions[i3]     = Math.cos(angle) * r;
+    positions[i3 + 1] = Math.sin(angle) * r;
+    positions[i3 + 2] = z;
+
+    // Core stars stay bright even deep in the tunnel (min 60% brightness)
+    const depthBrightness = Math.max(0.55, 1.0 + z / DEPTH_DROP * 0.5);
+    const col = starPalette[Math.floor(Math.random() * starPalette.length)];
+    colors[i3]     = col.r * depthBrightness;
+    colors[i3 + 1] = col.g * depthBrightness;
+    colors[i3 + 2] = col.b * depthBrightness;
+
+    // Small and crisp like distant stars
+    sizes[i] = 0.06 + Math.random() * 0.20;
+
+    phases[i] = Math.random() * Math.PI * 2;
+    baseRadii[i] = r;
+    baseY[i] = z;
+  }
+
+  // ---- Ring particles: lip of the tunnel ----
+  for (let i = CORE_STAR_COUNT; i < PARTICLE_COUNT; i++) {
     const u1 = Math.max(Math.random(), 1e-10);
     const u2 = Math.random();
-    const gauss = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
     const gauss2 = Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2);
 
     const angle = Math.random() * Math.PI * 2;
+    const radialFactor = Math.random();
+    const radius = RING_RADIUS * 0.15 + radialFactor * RING_RADIUS * 1.3;
 
-    // Uniform distribution across the full volume (tunnel effect)
-    // Random radius from center to well past the lip
-    const u3 = Math.random();
-    const u4 = Math.random();
-    const gauss3 = Math.sqrt(-2 * Math.max(u3, 1e-10)) * Math.cos(2 * Math.PI * u4);
-
-    const radialFactor = Math.random(); // 0=center, 1=lip
-    const radius = RING_RADIUS * 0.05 + radialFactor * RING_RADIUS * 1.3;
-    const distFromRing = Math.abs(radius - RING_RADIUS);
-
-    // Drop Y proportionally to how far inside they are
-    const depthProgress = Math.max(0, (RING_RADIUS - radius)) / RING_RADIUS; // 0 (at lip) → 1 (at center)
+    const depthProgress = Math.max(0, (RING_RADIUS - radius)) / RING_RADIUS;
     const yOffset = -depthProgress * DEPTH_DROP + gauss2 * RING_HEIGHT * (0.3 + depthProgress * 0.7);
 
-    // Ring faces camera: opens in X-Y, depth tunnels into Z
-    positions[i * 3]     = Math.cos(angle) * radius;
-    positions[i * 3 + 1] = Math.sin(angle) * radius;
-    positions[i * 3 + 2] = yOffset;
+    const i3 = i * 3;
+    positions[i3]     = Math.cos(angle) * radius;
+    positions[i3 + 1] = Math.sin(angle) * radius;
+    positions[i3 + 2] = yOffset;
 
-    // Color: deeper particles are dimmer, with shifted hue
-    const col = paletteColors[Math.floor(Math.random() * paletteColors.length)];
-    const depthDim = (yOffset < 0) ? Math.max(0.3, 1.0 + yOffset / DEPTH_DROP) : 1.0;
-    colors[i * 3]     = col.r * depthDim;
-    colors[i * 3 + 1] = col.g * depthDim;
-    colors[i * 3 + 2] = col.b * depthDim;
+    const col = ringPalette[Math.floor(Math.random() * ringPalette.length)];
+    const depthDim = (yOffset < 0) ? Math.max(0.35, 1.0 + yOffset / DEPTH_DROP) : 1.0;
+    colors[i3]     = col.r * depthDim;
+    colors[i3 + 1] = col.g * depthDim;
+    colors[i3 + 2] = col.b * depthDim;
 
-    // Size: lip particles larger, deeper particles smaller
     const sizeBase = 0.28 + Math.random() * 0.40;
     const sizeDepth = (yOffset < 0) ? Math.max(0.4, 1.0 + yOffset / DEPTH_DROP * 0.6) : 1.0;
     sizes[i] = sizeBase * sizeDepth;
 
-    // Animation
     phases[i] = Math.random() * Math.PI * 2;
     baseRadii[i] = radius;
     baseY[i] = yOffset;
