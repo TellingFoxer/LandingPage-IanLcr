@@ -32,6 +32,13 @@ const CONSTELLATION_DEFS: ConstellationDef[] = [
     edges: [[0,1],[1,2],[2,3],[3,0], [4,5],[5,6],[6,7],[7,4], [0,4],[1,5],[2,6],[3,7]],
   },
   {
+    // Top-left: Resistor zigzag symbol
+    center: [-38, 42],
+    color: WHITE,
+    nodes: [[-10, 1], [-7, 0], [-4, 5], [0, 0], [4, 5], [7, 0], [10, 1]],
+    edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6]],
+  },
+  {
     // Bottom-right: Signal antenna with radiating waves
     center: [46, -38],
     color: WHITE,
