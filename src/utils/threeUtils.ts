@@ -24,32 +24,33 @@ interface ConstellationDef {
 
 const CONSTELLATION_DEFS: ConstellationDef[] = [
   {
-    // Top-right: Sine wave (2 periods) — signal processing / analog
+    // Top-right: Wireframe cube — isometric projection (3D structure)
     center: [44, 36],
     color: WHITE,
-    nodes: [[-6, -4], [-3, 4], [0, -4], [3, 4], [6, -4], [9, 4], [12, -4]],
-    edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6]],
+    // front face: 0-1-2-3, back face: 4-5-6-7
+    nodes: [[-5, -3], [3, -3], [3, 5], [-5, 5], [-2, 0], [6, 0], [6, 8], [-2, 8]],
+    edges: [[0,1],[1,2],[2,3],[3,0], [4,5],[5,6],[6,7],[7,4], [0,4],[1,5],[2,6],[3,7]],
   },
   {
-    // Bottom-left: PCB traces with vias — embedded / digital
+    // Bottom-left: Resistor zigzag with terminal frame
     center: [-44, -40],
     color: WHITE,
-    nodes: [[-6, 8], [0, 8], [0, 3], [7, 3], [7, -3], [0, -3], [0, -8], [-6, -8]],
-    edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,0],[1,7],[2,5]],
+    nodes: [[-9, 0], [-6, 5], [-2, 0], [2, 5], [6, 0], [9, 0], [-1, -4], [5, -4]],
+    edges: [[0,1],[1,2],[2,3],[3,4],[4,5], [0,6],[6,7],[7,5], [2,6],[3,7]],
   },
   {
-    // Top-left: Atom with orbits — physics / fundamentals
+    // Top-left: Lightning bolt with branches
     center: [-38, 42],
     color: WHITE,
-    nodes: [[0, 0], [7, 1], [3.5, 6.5], [-3.5, 6], [-7, 0], [-3, -6.5], [4, -6]],
-    edges: [[1,2],[2,3],[3,4],[4,5],[5,6],[6,1],[0,1],[0,3],[0,5]],
+    nodes: [[0, 9], [4, 3], [1, 3], [6, -4], [-4, -5], [-6, -9], [8, 2], [-2, -1]],
+    edges: [[0,1],[1,2],[2,3],[3,4],[4,5], [0,6],[6,3], [1,7],[7,4]],
   },
   {
-    // Bottom-right: Resistor zigzag + ground symbol — components
+    // Bottom-right: Signal antenna with radiating waves
     center: [46, -38],
     color: WHITE,
-    nodes: [[-8, 4], [-5, 7], [-1, 4], [2, 7], [5, 4], [5, 1], [8, 0], [6, -3], [8, -6]],
-    edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[1,3],[0,5]],
+    nodes: [[0, 8], [-3, 5], [3, 5], [-6, 1], [6, 1], [0, -4]],
+    edges: [[0,1],[1,2],[2,0], [0,3],[3,4],[4,0], [0,5]],
   },
 ];
 
