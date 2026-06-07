@@ -1,13 +1,14 @@
 // @ts-nocheck
 import * as THREE from "three";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 
 // ---------------------------------------------------------------------------
 // Palette — matches card border gradient
 // ---------------------------------------------------------------------------
 
-const GOLD = new THREE.Color("#C9A84C");
-const CYAN = new THREE.Color("#00D4FF");
-const GREEN = new THREE.Color("#00FF41");
+const WHITE = new THREE.Color("#ffffff");
 
 // ---------------------------------------------------------------------------
 // Constellation patterns: 4 shapes with node-to-node connections
@@ -25,28 +26,28 @@ const CONSTELLATION_DEFS: ConstellationDef[] = [
   {
     // Top-right: triangle with a tail — like a kite
     center: [44, 36],
-    color: GOLD,
+    color: WHITE,
     nodes: [[0, 0], [3, 5], [7, 1], [5, -4], [2, -8], [9, -3]],
     edges: [[0,1],[1,2],[2,3],[3,0],[3,4],[4,5],[2,5]],
   },
   {
     // Bottom-left: zigzag chain — like a serpent
     center: [-44, -40],
-    color: CYAN,
+    color: WHITE,
     nodes: [[0, 0], [4, 3], [8, -1], [6, -6], [10, -8], [3, -5], [-1, -7]],
     edges: [[0,1],[1,2],[2,3],[3,4],[1,5],[5,6],[6,0]],
   },
   {
     // Top-left: diamond with cross
     center: [-38, 42],
-    color: GREEN,
+    color: WHITE,
     nodes: [[0, 0], [4, 4], [8, 0], [4, -4], [-4, 0]],
     edges: [[0,1],[1,2],[2,3],[3,0],[0,2],[1,3],[0,4]],
   },
   {
     // Bottom-right: small hexagon cluster
     center: [46, -38],
-    color: GOLD,
+    color: WHITE,
     nodes: [[0, 0], [3, 5], [6, 3], [6, -2], [3, -5], [-1, -3]],
     edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,0],[0,3]],
   },
@@ -229,43 +230,39 @@ function createParticleSystem(): {
 
   // ---- Constellation lines: sequential edge-by-edge drawing ----
   const lineGroup = new THREE.Group();
-  const allEdgeLines: { line: THREE.LineSegments; constIdx: number; edgeIdx: number }[] = [];
+  const allEdgeLines: { line: LineSegments2; constIdx: number; edgeIdx: number }[] = [];
+  const allLineMaterials: LineMaterial[] = [];
 
   for (let c = 0; c < CONSTELLATION_DEFS.length; c++) {
     const def = CONSTELLATION_DEFS[c];
     const nodeIndices = constNodeMap[c];
-    const colorHex = "#" + def.color.getHexString();
 
     for (let e = 0; e < def.edges.length; e++) {
       const [a, b] = def.edges[e];
       const ia3 = nodeIndices[a] * 3;
       const ib3 = nodeIndices[b] * 3;
 
-      const edgeGeo = new THREE.BufferGeometry();
-      edgeGeo.setAttribute(
-        "position",
-        new THREE.BufferAttribute(
-          new Float32Array([
-            positions[ia3], positions[ia3 + 1], positions[ia3 + 2],
-            positions[ib3], positions[ib3 + 1], positions[ib3 + 2],
-          ]),
-          3
-        )
-      );
+      const edgeGeo = new LineGeometry();
+      edgeGeo.setPositions([
+        positions[ia3], positions[ia3 + 1], positions[ia3 + 2],
+        positions[ib3], positions[ib3 + 1], positions[ib3 + 2],
+      ]);
 
-      const edgeMat = new THREE.LineBasicMaterial({
-        color: new THREE.Color(colorHex),
-        linewidth: 1,
+      const edgeMat = new LineMaterial({
+        color: 0xffffff,
+        linewidth: 3,
         transparent: true,
         opacity: 0,
         depthWrite: false,
         depthTest: false,
-        blending: THREE.AdditiveBlending,
+        resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
       });
+      edgeMat.blending = THREE.AdditiveBlending;
 
-      const edgeLine = new THREE.LineSegments(edgeGeo, edgeMat);
+      const edgeLine = new LineSegments2(edgeGeo, edgeMat);
       lineGroup.add(edgeLine);
       allEdgeLines.push({ line: edgeLine, constIdx: c, edgeIdx: e });
+      allLineMaterials.push(edgeMat);
     }
   }
 
@@ -279,6 +276,7 @@ function createParticleSystem(): {
     ringPhases: phases,
     lineGroup,
     edgeLines: allEdgeLines,
+    lineMaterials: allLineMaterials,
   };
 }
 
@@ -315,7 +313,7 @@ export function createBackgroundScene(container: HTMLElement): () => void {
   const portalGroup = new THREE.Group();
   scene.add(portalGroup);
 
-  const { points, geometry, ringStart, ringBaseAngle, ringBaseRadii, ringBaseY, ringPhases, lineGroup, edgeLines } = createParticleSystem();
+  const { points, geometry, ringStart, ringBaseAngle, ringBaseRadii, ringBaseY, ringPhases, lineGroup, edgeLines, lineMaterials } = createParticleSystem();
   portalGroup.add(points);
   portalGroup.add(lineGroup);
 
@@ -416,7 +414,7 @@ export function createBackgroundScene(container: HTMLElement): () => void {
       const targetOp = el.edgeIdx < globalEdge ? 1.0
         : el.edgeIdx === globalEdge ? edgeFrac
         : 0;
-      el.line.material.opacity = targetOp * 0.35;
+      el.line.material.opacity = targetOp * 0.75;
     }
 
     // Ring particles: breathing (radius + Z drift) — rotation handled by portalGroup
@@ -454,6 +452,10 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     renderer.setSize(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    const res = new THREE.Vector2(w, h);
+    for (const mat of lineMaterials) {
+      mat.resolution = res;
+    }
   }
   window.addEventListener("resize", onResize);
 
