@@ -24,32 +24,32 @@ interface ConstellationDef {
 
 const CONSTELLATION_DEFS: ConstellationDef[] = [
   {
-    // Top-right: triangle with a tail — like a kite
+    // Top-right: Sine wave (2 periods) — signal processing / analog
     center: [44, 36],
     color: WHITE,
-    nodes: [[0, 0], [3, 5], [7, 1], [5, -4], [2, -8], [9, -3]],
-    edges: [[0,1],[1,2],[2,3],[3,0],[3,4],[4,5],[2,5]],
+    nodes: [[-6, -4], [-3, 4], [0, -4], [3, 4], [6, -4], [9, 4], [12, -4]],
+    edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6]],
   },
   {
-    // Bottom-left: zigzag chain — like a serpent
+    // Bottom-left: PCB traces with vias — embedded / digital
     center: [-44, -40],
     color: WHITE,
-    nodes: [[0, 0], [4, 3], [8, -1], [6, -6], [10, -8], [3, -5], [-1, -7]],
-    edges: [[0,1],[1,2],[2,3],[3,4],[1,5],[5,6],[6,0]],
+    nodes: [[-6, 8], [0, 8], [0, 3], [7, 3], [7, -3], [0, -3], [0, -8], [-6, -8]],
+    edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,0],[1,7],[2,5]],
   },
   {
-    // Top-left: diamond with cross
+    // Top-left: Atom with orbits — physics / fundamentals
     center: [-38, 42],
     color: WHITE,
-    nodes: [[0, 0], [4, 4], [8, 0], [4, -4], [-4, 0]],
-    edges: [[0,1],[1,2],[2,3],[3,0],[0,2],[1,3],[0,4]],
+    nodes: [[0, 0], [7, 1], [3.5, 6.5], [-3.5, 6], [-7, 0], [-3, -6.5], [4, -6]],
+    edges: [[1,2],[2,3],[3,4],[4,5],[5,6],[6,1],[0,1],[0,3],[0,5]],
   },
   {
-    // Bottom-right: small hexagon cluster
+    // Bottom-right: Resistor zigzag + ground symbol — components
     center: [46, -38],
     color: WHITE,
-    nodes: [[0, 0], [3, 5], [6, 3], [6, -2], [3, -5], [-1, -3]],
-    edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,0],[0,3]],
+    nodes: [[-8, 4], [-5, 7], [-1, 4], [2, 7], [5, 4], [5, 1], [8, 0], [6, -3], [8, -6]],
+    edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[1,3],[0,5]],
   },
 ];
 
