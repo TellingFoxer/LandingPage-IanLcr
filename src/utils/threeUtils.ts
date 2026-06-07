@@ -266,6 +266,44 @@ function createParticleSystem(): {
     }
   }
 
+  // ---- Constellation glow: wide subtle lines behind the main edges ----
+  const allGlowMaterials: LineMaterial[] = [];
+
+  for (let c = 0; c < CONSTELLATION_DEFS.length; c++) {
+    const def = CONSTELLATION_DEFS[c];
+    const nodeIndices = constNodeMap[c];
+    const edgeCount = def.edges.length;
+
+    const glowPositions: number[] = [];
+    for (let e = 0; e < edgeCount; e++) {
+      const [a, b] = def.edges[e];
+      const ia3 = nodeIndices[a] * 3;
+      const ib3 = nodeIndices[b] * 3;
+      glowPositions.push(
+        positions[ia3], positions[ia3 + 1], positions[ia3 + 2],
+        positions[ib3], positions[ib3 + 1], positions[ib3 + 2],
+      );
+    }
+
+    const glowGeo = new LineGeometry();
+    glowGeo.setPositions(glowPositions);
+
+    const glowMat = new LineMaterial({
+      color: 0xffffff,
+      linewidth: 10,
+      transparent: true,
+      opacity: 0.12,
+      depthWrite: false,
+      depthTest: false,
+      resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+    });
+    glowMat.blending = THREE.AdditiveBlending;
+
+    const glowLine = new LineSegments2(glowGeo, glowMat);
+    lineGroup.add(glowLine);
+    allGlowMaterials.push(glowMat);
+  }
+
   return {
     points,
     geometry,
@@ -277,6 +315,7 @@ function createParticleSystem(): {
     lineGroup,
     edgeLines: allEdgeLines,
     lineMaterials: allLineMaterials,
+    glowMaterials: allGlowMaterials,
   };
 }
 
@@ -313,7 +352,7 @@ export function createBackgroundScene(container: HTMLElement): () => void {
   const portalGroup = new THREE.Group();
   scene.add(portalGroup);
 
-  const { points, geometry, ringStart, ringBaseAngle, ringBaseRadii, ringBaseY, ringPhases, lineGroup, edgeLines, lineMaterials } = createParticleSystem();
+  const { points, geometry, ringStart, ringBaseAngle, ringBaseRadii, ringBaseY, ringPhases, lineGroup, edgeLines, lineMaterials, glowMaterials } = createParticleSystem();
   portalGroup.add(points);
   portalGroup.add(lineGroup);
 
@@ -454,6 +493,9 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     camera.updateProjectionMatrix();
     const res = new THREE.Vector2(w, h);
     for (const mat of lineMaterials) {
+      mat.resolution = res;
+    }
+    for (const mat of glowMaterials) {
       mat.resolution = res;
     }
   }
