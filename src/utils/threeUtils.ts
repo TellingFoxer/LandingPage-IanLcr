@@ -428,19 +428,38 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     portalGroup.rotation.z += 0.0006;
     portalGroup.rotation.x = Math.sin(t * 0.015) * 0.01;
 
-    // Update constellation lines: sequential draw — one edge fades in at a time
-    // All constellations draw simultaneously, edge by edge
+    // Update constellation lines: 3-phase cycle (draw → hold → fade)
     const maxEdges = Math.max(...CONSTELLATION_DEFS.map(d => d.edges.length));
-    const cycleTime = 18.0; // full cycle in seconds
-    const rawSweep = (t % cycleTime) / cycleTime * maxEdges;
-    const globalEdge = Math.floor(rawSweep);
-    const edgeFrac = rawSweep - globalEdge; // 0→1 for current edge
+    const cycleTime = 24.0;       // full cycle in seconds
+    const drawEnd = 0.60;         // draw phase ends at 60% of cycle
+    const fadeStart = 0.75;       // fade phase starts at 75% of cycle
+    const cycleFrac = (t % cycleTime) / cycleTime;
 
-    for (const el of edgeLines) {
-      const targetOp = el.edgeIdx < globalEdge ? 1.0
-        : el.edgeIdx === globalEdge ? edgeFrac
-        : 0;
-      el.line.material.opacity = targetOp * 0.75;
+    if (cycleFrac < drawEnd) {
+      // Phase 1: sequential edge-by-edge draw
+      const drawFrac = cycleFrac / drawEnd; // 0→1 over draw phase
+      const rawSweep = drawFrac * maxEdges;
+      const globalEdge = Math.floor(rawSweep);
+      const edgeFrac = rawSweep - globalEdge;
+
+      for (const el of edgeLines) {
+        const targetOp = el.edgeIdx < globalEdge ? 1.0
+          : el.edgeIdx === globalEdge ? edgeFrac
+          : 0;
+        el.line.material.opacity = targetOp * 0.75;
+      }
+    } else if (cycleFrac < fadeStart) {
+      // Phase 2: hold — all edges fully visible
+      for (const el of edgeLines) {
+        el.line.material.opacity = 0.75;
+      }
+    } else {
+      // Phase 3: fade — all edges dissolve together
+      const fadeFrac = (cycleFrac - fadeStart) / (1.0 - fadeStart); // 0→1
+      const fadeOpacity = (1.0 - fadeFrac) * 0.75;
+      for (const el of edgeLines) {
+        el.line.material.opacity = fadeOpacity;
+      }
     }
 
     // Ring particles: breathing (radius + Z drift) — rotation handled by portalGroup
