@@ -39,6 +39,13 @@ const CONSTELLATION_DEFS: ConstellationDef[] = [
     edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6]],
   },
   {
+    // Bottom-left: Wizard hat
+    center: [-44, -40],
+    color: WHITE,
+    nodes: [[0, 9], [-2, 4], [2, 4], [-5, 0], [5, 0], [-3, -2], [3, -2], [0, -3]],
+    edges: [[0,1],[0,2],[1,3],[2,4],[3,5],[4,6],[5,7],[6,7]],
+  },
+  {
     // Bottom-right: Signal antenna with radiating waves
     center: [46, -38],
     color: WHITE,
