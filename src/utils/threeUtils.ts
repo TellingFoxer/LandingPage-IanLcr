@@ -32,20 +32,6 @@ const CONSTELLATION_DEFS: ConstellationDef[] = [
     edges: [[0,1],[1,2],[2,3],[3,0], [4,5],[5,6],[6,7],[7,4], [0,4],[1,5],[2,6],[3,7]],
   },
   {
-    // Bottom-left: Resistor zigzag with terminal frame
-    center: [-44, -40],
-    color: WHITE,
-    nodes: [[-9, 0], [-6, 5], [-2, 0], [2, 5], [6, 0], [9, 0], [-1, -4], [5, -4]],
-    edges: [[0,1],[1,2],[2,3],[3,4],[4,5], [0,6],[6,7],[7,5], [2,6],[3,7]],
-  },
-  {
-    // Top-left: Lightning bolt with branches
-    center: [-38, 42],
-    color: WHITE,
-    nodes: [[0, 9], [4, 3], [1, 3], [6, -4], [-4, -5], [-6, -9], [8, 2], [-2, -1]],
-    edges: [[0,1],[1,2],[2,3],[3,4],[4,5], [0,6],[6,3], [1,7],[7,4]],
-  },
-  {
     // Bottom-right: Signal antenna with radiating waves
     center: [46, -38],
     color: WHITE,
