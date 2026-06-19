@@ -293,7 +293,7 @@ function createParticleSystem(): {
       color: 0xffffff,
       linewidth: 10,
       transparent: true,
-      opacity: 0.12,
+      opacity: 0,
       depthWrite: false,
       depthTest: false,
       resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
@@ -309,6 +309,7 @@ function createParticleSystem(): {
     points,
     geometry,
     ringStart,
+    constNodeStart,
     ringBaseAngle: baseAngle,
     ringBaseRadii: baseRadii,
     ringBaseY: baseY,
@@ -353,7 +354,7 @@ export function createBackgroundScene(container: HTMLElement): () => void {
   const portalGroup = new THREE.Group();
   scene.add(portalGroup);
 
-  const { points, geometry, ringStart, ringBaseAngle, ringBaseRadii, ringBaseY, ringPhases, lineGroup, edgeLines, lineMaterials, glowMaterials } = createParticleSystem();
+  const { points, geometry, ringStart, constNodeStart, ringBaseAngle, ringBaseRadii, ringBaseY, ringPhases, lineGroup, edgeLines, lineMaterials, glowMaterials } = createParticleSystem();
   portalGroup.add(points);
   portalGroup.add(lineGroup);
 
@@ -442,38 +443,66 @@ export function createBackgroundScene(container: HTMLElement): () => void {
     portalGroup.rotation.z += 0.0006;
     portalGroup.rotation.x = Math.sin(t * 0.015) * 0.01;
 
-    // Update constellation lines: 3-phase cycle (draw → hold → fade)
+    // Update constellation lines + glow: 3-phase cycle (draw → hold → fade)
+    // Each constellation runs the same 24s cycle but with its own phase offset,
+    // so they draw/hold/fade at different times:
+    //   cube=0s, zigzag=6s, hat=12s, antenna=18s (0, 0.25, 0.5, 0.75 of the cycle).
     const maxEdges = Math.max(...CONSTELLATION_DEFS.map(d => d.edges.length));
     const cycleTime = 24.0;       // full cycle in seconds
     const drawEnd = 0.60;         // draw phase ends at 60% of cycle
     const fadeStart = 0.75;       // fade phase starts at 75% of cycle
-    const cycleFrac = (t % cycleTime) / cycleTime;
+    const lineMaxOpacity = 1.0;   // white lines on a dark bg can go full opacity
+    const glowPeakOpacity = 0.12; // subtle glow tracks the line cycle
+    const phaseOffsets = [0, 6, 12, 18]; // seconds, one per constellation
 
-    if (cycleFrac < drawEnd) {
-      // Phase 1: sequential edge-by-edge draw
-      const drawFrac = cycleFrac / drawEnd; // 0→1 over draw phase
-      const rawSweep = drawFrac * maxEdges;
-      const globalEdge = Math.floor(rawSweep);
-      const edgeFrac = rawSweep - globalEdge;
+    const constCount = CONSTELLATION_DEFS.length;
+    const constPhase: ("draw" | "hold" | "fade")[] = new Array(constCount);
+    const constGlobalEdge = new Array(constCount);
+    const constEdgeFrac = new Array(constCount);
+    const constFadeFrac = new Array(constCount);
 
-      for (const el of edgeLines) {
-        const targetOp = el.edgeIdx < globalEdge ? 1.0
-          : el.edgeIdx === globalEdge ? edgeFrac
+    for (let c = 0; c < constCount; c++) {
+      const localFrac = (((t - phaseOffsets[c]) % cycleTime) + cycleTime) % cycleTime / cycleTime;
+      if (localFrac < drawEnd) {
+        constPhase[c] = "draw";
+        const drawFrac = localFrac / drawEnd; // 0→1 over draw phase
+        const rawSweep = drawFrac * maxEdges;
+        constGlobalEdge[c] = Math.floor(rawSweep);
+        constEdgeFrac[c] = rawSweep - constGlobalEdge[c];
+      } else if (localFrac < fadeStart) {
+        constPhase[c] = "hold";
+      } else {
+        constPhase[c] = "fade";
+        constFadeFrac[c] = (localFrac - fadeStart) / (1.0 - fadeStart); // 0→1
+      }
+    }
+
+    // Apply per-edge opacity from its constellation's phase, and accumulate
+    // per-constellation opacity so the glow can track the average line state.
+    const opacitySum = new Array(constCount).fill(0);
+    const edgeCountByConst = new Array(constCount).fill(0);
+    for (const el of edgeLines) {
+      const c = el.constIdx;
+      let edgeOp: number;
+      if (constPhase[c] === "draw") {
+        const ge = constGlobalEdge[c];
+        edgeOp = el.edgeIdx < ge ? 1.0
+          : el.edgeIdx === ge ? constEdgeFrac[c]
           : 0;
-        el.line.material.opacity = targetOp * 0.75;
+      } else if (constPhase[c] === "hold") {
+        edgeOp = 1.0;
+      } else {
+        edgeOp = 1.0 - constFadeFrac[c];
       }
-    } else if (cycleFrac < fadeStart) {
-      // Phase 2: hold — all edges fully visible
-      for (const el of edgeLines) {
-        el.line.material.opacity = 0.75;
-      }
-    } else {
-      // Phase 3: fade — all edges dissolve together
-      const fadeFrac = (cycleFrac - fadeStart) / (1.0 - fadeStart); // 0→1
-      const fadeOpacity = (1.0 - fadeFrac) * 0.75;
-      for (const el of edgeLines) {
-        el.line.material.opacity = fadeOpacity;
-      }
+      el.line.material.opacity = edgeOp * lineMaxOpacity;
+      opacitySum[c] += edgeOp;
+      edgeCountByConst[c]++;
+    }
+
+    // Glow follows the same cycle: peaks while the lines are held, fades with them.
+    for (let c = 0; c < constCount; c++) {
+      const avgOp = edgeCountByConst[c] > 0 ? opacitySum[c] / edgeCountByConst[c] : 0;
+      glowMaterials[c].opacity = avgOp * glowPeakOpacity;
     }
 
     // Ring particles: breathing (radius + Z drift) — rotation handled by portalGroup
@@ -493,6 +522,15 @@ export function createBackgroundScene(container: HTMLElement): () => void {
       posArr[i3 + 2] = baseYVal + Math.sin(t * 0.35 + phase * 1.5) * 0.06;
     }
     geometry.attributes.position.needsUpdate = true;
+
+    // Subtle pulse on constellation nodes: size oscillates between 0.25 and 0.55.
+    // Each node uses its own random phase so they breathe independently.
+    const sizeArr = geometry.attributes.size.array as Float32Array;
+    for (let i = constNodeStart; i < ringStart; i++) {
+      const phase = ringPhases[i];
+      sizeArr[i] = 0.40 + 0.15 * Math.sin(t * 0.5 + phase);
+    }
+    geometry.attributes.size.needsUpdate = true;
 
     renderer.render(scene, camera);
   }
